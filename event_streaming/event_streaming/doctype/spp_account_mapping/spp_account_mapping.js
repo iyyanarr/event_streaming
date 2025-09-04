@@ -75,21 +75,11 @@ function import_account_csv_mapping(frm) {
 				return;
 			}
 			
-			frappe.call({
-				method: 'frappe.client.get_file',
-				args: {
-					file_url: values.csv_file
-				},
-				callback: function(r) {
-					if (r.message) {
-						frm.call('import_csv_mapping', {
-							csv_data: r.message
-						}).then(() => {
-							frm.refresh();
-							frappe.msgprint(__('CSV import completed successfully'));
-						});
-					}
-				}
+			frm.call('import_csv_mapping', {
+				csv_file: values.csv_file
+			}).then(() => {
+				frm.refresh();
+				frappe.msgprint(__('CSV import completed successfully'));
 			});
 			
 			this.hide();

@@ -31,32 +31,35 @@ frappe.ui.form.on('SPP Item Mapping', {
 		}
 	},
 	
-	source_site: function(frm) {
-		if (frm.doc.source_site === frm.doc.target_site) {
-			frappe.msgprint(__('Source site and target site cannot be the same'));
-			frm.set_value('source_site', '');
+	producer_site: function(frm) {
+		if (frm.doc.producer_site === frm.doc.consumer_site) {
+			frappe.msgprint(__('Producer site and consumer site cannot be the same'));
+			frm.set_value('producer_site', '');
 		}
 	},
 	
-	target_site: function(frm) {
-		if (frm.doc.source_site === frm.doc.target_site) {
-			frappe.msgprint(__('Source site and target site cannot be the same'));
-			frm.set_value('target_site', '');
+	consumer_site: function(frm) {
+		if (frm.doc.producer_site === frm.doc.consumer_site) {
+			frappe.msgprint(__('Producer site and consumer site cannot be the same'));
+			frm.set_value('consumer_site', '');
 		}
 	}
 });
 
 frappe.ui.form.on('SPP Item Mapping Detail', {
-	source_item_code: function(frm, cdt, cdn) {
-		let row = locals[cdt][cdn];
-		if (!row.target_item_code) {
-			// Auto-fill target with source if empty
-			frappe.model.set_value(cdt, cdn, 'target_item_code', row.source_item_code);
-		}
+	producer_item_code: function(frm, cdt, cdn) {
+		// Auto-fill removed: previously copied producer -> consumer when blank.
+		// This caused overwriting during render/import race conditions.
+		// Users must now enter consumer code explicitly or rely on CSV import.
 	}
 });
 
 function import_csv_mapping(frm) {
+	// Prevent import before initial save to avoid duplicate insert issues
+	if (frm.is_new()) {
+		frappe.msgprint(__('Please save this SPP Item Mapping before importing a CSV.'));
+		return;
+	}
 	new frappe.ui.Dialog({
 		title: __('Import Item Mappings from CSV'),
 		fields: [
@@ -65,7 +68,7 @@ function import_csv_mapping(frm) {
 				fieldname: 'csv_file',
 				label: __('CSV File'),
 				reqd: 1,
-				description: __('CSV file should have columns: old_item_code, new_item_code')
+				description: __('Accepted headers (any pair): old_item_code/new_item_code, source_item_code/target_item_code, producer_item_code/consumer_item_code, Producer Item Code/Consumer Item Code')
 			}
 		],
 		primary_action_label: __('Import'),
@@ -74,24 +77,24 @@ function import_csv_mapping(frm) {
 				frappe.msgprint(__('Please attach a CSV file'));
 				return;
 			}
-			
-			frappe.call({
-				method: 'frappe.client.get_file',
-				args: {
-					file_url: values.csv_file
-				},
-				callback: function(r) {
-					if (r.message) {
-						frm.call('import_csv_mapping', {
-							csv_data: r.message
-						}).then(() => {
-							frm.refresh();
-							frappe.msgprint(__('CSV import completed successfully'));
-						});
-					}
-				}
+			frm.call('import_csv_mapping', { csv_file_url: values.csv_file }).then((r) => {
+				// Force reload so freshly saved child table rows are fetched from server
+				frm.reload_doc().then(() => {
+					// Explicitly refresh child table field
+					frm.refresh_field('item_mappings');
+					let info = r.message || {};
+					frappe.show_alert({
+						message: __('Imported {0} mappings', [info.count || 0]),
+						indicator: 'green'
+					});
+				});
+			}).catch(e => {
+				frappe.msgprint({
+					title: __('Import Failed'),
+					message: e.message || __('Unknown error during import'),
+					indicator: 'red'
+				});
 			});
-			
 			this.hide();
 		}
 	}).show();
@@ -103,22 +106,22 @@ function test_item_mapping(frm) {
 		fields: [
 			{
 				fieldtype: 'Data',
-				fieldname: 'source_item_code',
-				label: __('Source Item Code'),
+				fieldname: 'producer_item_code',
+				label: __('Producer Item Code'),
 				reqd: 1
 			}
 		],
 		primary_action_label: __('Test'),
 		primary_action: function(values) {
 			let target_item = frm.doc.item_mappings.find(
-				item => item.source_item_code === values.source_item_code
+				item => item.producer_item_code === values.producer_item_code
 			);
 			
 			if (target_item) {
 				frappe.msgprint(__('Mapping Result: {0} → {1}', 
-					[values.source_item_code, target_item.target_item_code]));
+					[values.producer_item_code, target_item.consumer_item_code]));
 			} else {
-				frappe.msgprint(__('No mapping found for item code: {0}', [values.source_item_code]));
+				frappe.msgprint(__('No mapping found for item code: {0}', [values.producer_item_code]));
 			}
 			
 			this.hide();
@@ -127,10 +130,10 @@ function test_item_mapping(frm) {
 }
 
 function export_csv_mapping(frm) {
-	let csv_data = 'old_item_code,new_item_code,item_group,is_active,notes\n';
+	let csv_data = 'producer_item_code,consumer_item_code,item_group,is_active,notes\n';
 	
 	frm.doc.item_mappings.forEach(item => {
-		csv_data += `"${item.source_item_code}","${item.target_item_code}","${item.item_group || ''}","${item.is_active}","${item.notes || ''}"\n`;
+		csv_data += `"${item.producer_item_code}","${item.consumer_item_code}","${item.item_group || ''}","${item.is_active}","${item.notes || ''}"\n`;
 	});
 	
 	// Create and download CSV file
