@@ -15,24 +15,60 @@ class SPPWarehouseMapping(Document):
 		# Check for duplicate producer warehouses within same item group
 		producer_warehouses = {}
 		for mapping in self.warehouse_mappings:
-			key = f"{mapping.producer_warehouse}|{mapping.item_group or 'All'}"
-			if key in producer_warehouses:
-				frappe.throw(_("Duplicate producer warehouse '{0}' for item group '{1}'").format(
-					mapping.producer_warehouse, mapping.item_group or 'All'
-				))
-			producer_warehouses[key] = True
+			# Handle multiple item groups by creating keys for each group
+			if mapping.item_group:
+				item_groups = [g.strip() for g in mapping.item_group.split(',') if g.strip()]
+				if not item_groups:
+					item_groups = ['All']
+			else:
+				item_groups = ['All']
+			
+			for group in item_groups:
+				key = f"{mapping.producer_warehouse}|{group}"
+				if key in producer_warehouses:
+					frappe.throw(_("Duplicate producer warehouse '{0}' for item group '{1}'").format(
+						mapping.producer_warehouse, group
+					))
+				producer_warehouses[key] = True
 	
 	def get_consumer_warehouse(self, producer_warehouse, item_group=None):
-		"""Get the consumer warehouse for a given producer warehouse"""
-		# First try to find specific item group mapping
+		"""Get the consumer warehouse for a given producer warehouse and item group.
+		Supports multiple item groups (comma-separated) in the mapping.
+		"""
+		if not self.warehouse_mappings:
+			return producer_warehouse
+		
+		# If item_group is provided, split by comma and check each
+		item_groups_to_check = []
 		if item_group:
+			item_groups_to_check = [g.strip() for g in item_group.split(',') if g.strip()]
+		else:
+			item_groups_to_check = [None]  # Check for general mappings
+		
+		# First, try to find exact matches for each item group
+		for check_group in item_groups_to_check:
 			for mapping in self.warehouse_mappings:
-				if mapping.producer_warehouse == producer_warehouse and mapping.item_group == item_group:
+				if (mapping.producer_warehouse == producer_warehouse and 
+					mapping.is_active and 
+					mapping.item_group == check_group):
 					return mapping.consumer_warehouse
 		
-		# Fallback to general mapping (no item group specified)
+		# If no exact match, check if any of the mapping's item groups match our item groups
 		for mapping in self.warehouse_mappings:
-			if mapping.producer_warehouse == producer_warehouse and not mapping.item_group:
+			if (mapping.producer_warehouse == producer_warehouse and 
+				mapping.is_active and 
+				mapping.item_group):
+				# Check if any of our item groups match the mapping's item groups
+				mapping_groups = [g.strip() for g in mapping.item_group.split(',') if g.strip()]
+				for check_group in item_groups_to_check:
+					if check_group in mapping_groups:
+						return mapping.consumer_warehouse
+		
+		# Finally, check for general mappings (no item group specified)
+		for mapping in self.warehouse_mappings:
+			if (mapping.producer_warehouse == producer_warehouse and 
+				mapping.is_active and 
+				not mapping.item_group):
 				return mapping.consumer_warehouse
 		
 		return producer_warehouse  # Return original if no mapping found
@@ -134,19 +170,13 @@ class SPPWarehouseMapping(Document):
 @frappe.whitelist()
 def get_warehouse_mapping_for_sites(producer_site, consumer_site, producer_warehouse, item_group=None):
 	"""Get warehouse mapping between two sites for a specific warehouse"""
-	# Try new field names first
+	# Query for mapping using the correct field names
 	mapping = frappe.db.get_value(
 		"SPP Warehouse Mapping",
 		{"producer_site": producer_site, "consumer_site": consumer_site, "is_active": 1},
 		"name"
 	)
-	if not mapping:
-		# Fallback to legacy source/target field names
-		mapping = frappe.db.get_value(
-			"SPP Warehouse Mapping",
-			{"source_site": producer_site, "target_site": consumer_site, "is_active": 1},
-			"name"
-		)
+	
 	if mapping:
 		doc = frappe.get_doc("SPP Warehouse Mapping", mapping)
 		return doc.get_consumer_warehouse(producer_warehouse, item_group)
@@ -156,7 +186,7 @@ def get_warehouse_mapping_for_sites(producer_site, consumer_site, producer_wareh
 
 @frappe.whitelist()
 def bulk_create_warehouse_mappings_from_csv(file_path, mapping_name, producer_site, consumer_site):
-	"""Create warehouse mappings from CSV file"""
+	"""Create warehouse mappings from CSV file with support for multiple item groups"""
 	import csv
 	
 	# Create or get existing mapping document
@@ -179,13 +209,79 @@ def bulk_create_warehouse_mappings_from_csv(file_path, mapping_name, producer_si
 		reader = csv.DictReader(csvfile)
 		for row in reader:
 			if row.get('Producer Warehouse') and row.get('Consumer Warehouse'):
-				doc.append("warehouse_mappings", {
-					"producer_warehouse": row['Producer Warehouse'].strip(),
-					"consumer_warehouse": row['Consumer Warehouse'].strip(),
-					"item_group": row.get('Item Group', '').strip() if row.get('Item Group') else None
-				})
+				# Handle multiple item groups (comma-separated)
+				item_group_value = row.get('Item Group', '').strip()
+				if item_group_value:
+					# Validate and clean item groups
+					item_groups = [g.strip() for g in item_group_value.split(',') if g.strip()]
+					valid_groups = []
+					for group in item_groups:
+						if frappe.db.exists('Item Group', group):
+							valid_groups.append(group)
+						else:
+							frappe.msgprint(_("Warning: Item Group '{0}' does not exist, skipping").format(group))
+					
+					if valid_groups:
+						# Create separate mapping entries for each valid item group
+						for group in valid_groups:
+							doc.append("warehouse_mappings", {
+								"producer_warehouse": row['Producer Warehouse'].strip(),
+								"consumer_warehouse": row['Consumer Warehouse'].strip(),
+								"item_group": group,
+								"is_active": 1
+							})
+					else:
+						# If no valid groups, create general mapping
+						doc.append("warehouse_mappings", {
+							"producer_warehouse": row['Producer Warehouse'].strip(),
+							"consumer_warehouse": row['Consumer Warehouse'].strip(),
+							"item_group": None,
+							"is_active": 1
+						})
+				else:
+					# No item group specified - general mapping
+					doc.append("warehouse_mappings", {
+						"producer_warehouse": row['Producer Warehouse'].strip(),
+						"consumer_warehouse": row['Consumer Warehouse'].strip(),
+						"item_group": None,
+						"is_active": 1
+					})
 	
 	doc.save()
 	frappe.db.commit()
 	
 	return f"Created warehouse mapping '{mapping_name}' with {len(doc.warehouse_mappings)} entries"
+
+
+@frappe.whitelist()
+def test_multiple_item_groups():
+	"""Test function to verify multiple item groups functionality"""
+	print("Testing warehouse mapping with multiple item groups...")
+	print("=" * 60)
+	
+	# Test data
+	test_warehouse = 'Incoming Store - SPP INDIA'
+	test_item_groups = ['Raw Materials - SPP', 'Carbon', 'Chemical', 'Chemicals', 'MOULD', 'Other', 'Plastisizer', 'Rubber']
+	
+	print(f'Producer Warehouse: {test_warehouse}')
+	print(f'Item Groups: {test_item_groups}')
+	print()
+	
+	try:
+		# Test the mapping function
+		mapped_warehouse = get_warehouse_mapping_for_sites(
+			producer_site='sppmaster.local',
+			consumer_site='2526spp.local',
+			producer_warehouse=test_warehouse,
+			item_group=', '.join(test_item_groups)  # Join the list into comma-separated string
+		)
+		
+		print(f'Mapped Warehouse: {mapped_warehouse}')
+		print("✓ Test completed successfully!")
+		return {"success": True, "mapped_warehouse": mapped_warehouse}
+		
+	except Exception as e:
+		print(f"✗ Test failed with error: {str(e)}")
+		import traceback
+		traceback.print_exc()
+		return {"success": False, "error": str(e)}

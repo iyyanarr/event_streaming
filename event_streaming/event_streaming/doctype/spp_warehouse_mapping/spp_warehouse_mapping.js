@@ -65,7 +65,7 @@ function import_warehouse_csv_mapping(frm) {
 				fieldname: 'csv_file',
 				label: __('CSV File'),
 				reqd: 1,
-				description: __('Accepted headers: Producer Warehouse, Consumer Warehouse, Item Group (optional). Backward compatible: Old Warehouse / New Warehouse.')
+				description: __('Accepted headers: Producer Warehouse, Consumer Warehouse, Item Group (optional, comma-separated for multiple groups). Backward compatible: Old Warehouse / New Warehouse.')
 			}
 		],
 		primary_action_label: __('Import'),
@@ -107,41 +107,58 @@ function test_warehouse_mapping(frm) {
 				fieldtype: 'Data',
 				fieldname: 'item_group',
 				label: __('Item Group (Optional)'),
-				description: __('Leave empty to test without item group filtering')
+				description: __('Comma-separated item groups (e.g., Raw Material,Chemical). Leave empty to test without item group filtering')
 			}
 		],
 		primary_action_label: __('Test'),
 		primary_action: function(values) {
 			let consumer_warehouse = null;
+			let item_groups_to_check = [];
+			
+			// Parse item groups if provided
+			if (values.item_group) {
+				item_groups_to_check = values.item_group.split(',').map(g => g.trim()).filter(g => g);
+			} else {
+				item_groups_to_check = [null]; // Check for general mappings
+			}
 
-			for (let wh of (frm.doc.warehouse_mappings || [])) {
-				if (!wh.is_active) continue;
-				if (wh.producer_warehouse !== values.producer_warehouse) continue;
+			// Check each item group
+			for (let check_group of item_groups_to_check) {
+				for (let wh of (frm.doc.warehouse_mappings || [])) {
+					if (!wh.is_active) continue;
+					if (wh.producer_warehouse !== values.producer_warehouse) continue;
 
-				// If an item group is supplied, prefer an exact item_group match
-				if (values.item_group) {
-					if (wh.item_group && wh.item_group === values.item_group) {
+					// Check for exact match
+					if (wh.item_group === check_group) {
 						consumer_warehouse = wh.consumer_warehouse;
-						break; // exact match wins
-					} else if (!wh.item_group) {
-						// fallback candidate if no specific group match found yet
-						consumer_warehouse = consumer_warehouse || wh.consumer_warehouse;
+						break;
 					}
-				} else {
-					// No item group provided: prefer a mapping without item_group, else first active
-					if (wh.item_group) {
-						consumer_warehouse = consumer_warehouse || wh.consumer_warehouse;
-					} else {
+					
+					// Check if mapping's item groups contain our check group
+					if (wh.item_group && check_group) {
+						let mapping_groups = wh.item_group.split(',').map(g => g.trim());
+						if (mapping_groups.includes(check_group)) {
+							consumer_warehouse = wh.consumer_warehouse;
+							break;
+						}
+					}
+					
+					// Fallback to general mapping if no item group specified in mapping
+					if (!wh.item_group && !check_group) {
 						consumer_warehouse = wh.consumer_warehouse;
 						break;
 					}
 				}
+				
+				if (consumer_warehouse) break;
 			}
 
 			if (consumer_warehouse) {
-				frappe.msgprint(__('Mapping Result: {0} → {1}', [values.producer_warehouse, consumer_warehouse]));
+				let item_group_display = values.item_group ? ` (Item Group: ${values.item_group})` : '';
+				frappe.msgprint(__('Mapping Result: {0}{1} → {2}', [values.producer_warehouse, item_group_display, consumer_warehouse]));
 			} else {
-				frappe.msgprint(__('No mapping found for warehouse: {0}', [values.producer_warehouse]));
+				let item_group_display = values.item_group ? ` with item group(s): ${values.item_group}` : '';
+				frappe.msgprint(__('No mapping found for warehouse: {0}{1}', [values.producer_warehouse, item_group_display]));
 			}
 
 			this.hide();
@@ -153,7 +170,13 @@ function export_warehouse_csv_mapping(frm) {
 	let csv_data = 'Producer Warehouse,Consumer Warehouse,Item Group,Is Active,Notes\n';
 
 	(frm.doc.warehouse_mappings || []).forEach(wh => {
-		csv_data += `"${wh.producer_warehouse}","${wh.consumer_warehouse}","${wh.item_group || ''}","${wh.is_active}","${wh.notes || ''}"\n`;
+		// Handle multiple item groups by wrapping in quotes if they contain commas
+		let item_group_value = wh.item_group || '';
+		if (item_group_value.includes(',')) {
+			item_group_value = `"${item_group_value}"`;
+		}
+		
+		csv_data += `"${wh.producer_warehouse}","${wh.consumer_warehouse}","${item_group_value}","${wh.is_active}","${wh.notes || ''}"\n`;
 	});
 
 	let blob = new Blob([csv_data], { type: 'text/csv' });

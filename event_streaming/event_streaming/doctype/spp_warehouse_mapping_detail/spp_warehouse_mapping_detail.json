@@ -33,9 +33,9 @@
   },
   {
    "fieldname": "item_group",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "label": "Item Group",
-   "options": "Item Group"
+   "description": "Comma-separated item groups (e.g., Raw Material,Chemical,Plastic). Leave blank for all item groups."
   },
   {
    "default": "1",
