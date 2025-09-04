@@ -1,0 +1,1 @@
+# SPP Warehouse Mapping DocType

@@ -1,0 +1,66 @@
+{
+ "actions": [],
+ "creation": "2025-09-04 06:35:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "source_item_code",
+  "target_item_code",
+  "column_break_3",
+  "item_group",
+  "is_active",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_item_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Source Item Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "target_item_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Target Item Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "item_group",
+   "fieldtype": "Link",
+   "label": "Item Group",
+   "options": "Item Group"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-09-04 06:35:00.000000",
+ "modified_by": "Administrator",
+ "module": "Event Streaming",
+ "name": "SPP Item Mapping Detail",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

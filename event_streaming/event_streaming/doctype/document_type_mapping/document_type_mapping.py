@@ -70,6 +70,22 @@ class DocumentTypeMapping(Document):
 		if update_type != "Update":
 			doc["doctype"] = self.local_doctype
 
+		# *** SPP CUSTOM MAPPING INTEGRATION ***
+		# Apply SPP custom mappings for item codes, warehouses, and companies
+		try:
+			from event_streaming.spp_mapping_integration import apply_spp_mappings
+			
+			# Get producer and consumer sites from the producer_site object
+			producer_url = getattr(producer_site, 'url', '')
+			consumer_url = frappe.utils.get_url()
+			
+			# Apply SPP mappings to the document
+			doc = apply_spp_mappings(doc, producer_url, consumer_url)
+			
+		except Exception as e:
+			# Log error but don't break the mapping process
+			frappe.log_error(f"SPP Mapping Error: {str(e)}", "SPP Custom Mapping")
+
 		mapping = {"doc": frappe.as_json(doc)}
 		if len(dependencies):
 			mapping["dependencies"] = dependencies

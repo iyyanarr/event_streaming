@@ -1,0 +1,406 @@
+target_account,account_type,root_type
+1010000 - Capital Account - SPP,,Liability
+1010100 - Partner's Capital Account - SPP,,Liability
+1010100.001 - Capital Account - Aishwaraya Karthik - SPP,,Liability
+1010100.002 - Capital Account - Chitra Ganesh - SPP,,Liability
+1010100.003 - Capital Account - K Raghupathy - SPP,,Liability
+1010100.004 - Capital Account - Padma Raghupathy - SPP,,Liability
+1010100.005 - Capital Account - R Ganesh Kumar - SPP,,Liability
+1010100.006 - Capital Account - R Karthik - SPP,,Liability
+1010200 - Partner's Drawing Account - SPP,,Liability
+1010200.001 - Drawings Account - K Ragupathy - SPP,,Liability
+1010200.002 - Drawings Account - Padma Raghupathy - SPP,,Liability
+1010200.003 - Drawings Account - R Ganesh Kumar - SPP,,Liability
+1010200.004 - Drawings Account - R Karthick - SPP,,Liability
+1010300 - Partner's Current Account - SPP,,Liability
+1010300.001 - Current Account - Chitra Ganesh - SPP,,Liability
+1010300.002 - Current Account - K Ragupathy - SPP,,Liability
+1010300.003 - Current Account - Padma Raghupathy - SPP,,Liability
+1010300.004 - Current Account - R Ganesh Kumar - SPP,,Liability
+1010300.005 - Current Account - R Karthick - SPP,,Liability
+1020000 - Reserves and Surplus - SPP,,Liability
+2010000 - Long-Term Borrowings - SPP,,Liability
+2010100 - Secured Long Term Loans - SPP,,Liability
+2010110 - Secured Long Term Loans from Bank - SPP,,Liability
+2010110.001 - Punjab National Bank Loan - 034500SZ00000036 - SPP,,Liability
+2010110.002 - Punjab National Bank  Loan - Mahindra XUV 400 - SPP,,Liability
+2010110.003 - Punjab National Bank Loan - Mahindra XUV 700 - SPP,,Liability
+2010110.004 - Punjab National Bank - Tafe Access Ltd - Tata Nexon EV Prime XZ+ - SPP,,Liability
+2010120 - Secured Long Term Loans from Financial Institutions - SPP,,Liability
+2010120.001 - SIDBI - SPP,,Liability
+2010120.002 - TIIC Limited - SPP,,Liability
+2010130 - Secured Long Term Loans from Others - SPP,,Liability
+2010200 - Unsecured Long Term Loans - SPP,,Liability
+2010210 - Unsecured Long Term Loans from Bank - SPP,,Liability
+2010220 - Unsecured Long Term Loans from NBFC - SPP,,Liability
+2010230 - Unsecured Long Term Loans from Others - SPP,,Liability
+2010240 - Unsecured Long Term Loans from Partners - SPP,,Liability
+2010240.001 - Unsecured Loan Account - Chitra Ganesh - SPP,,Liability
+2010240.002 - Unsecured Loan Account - K Raghupathy - SPP,,Liability
+2010240.003 - Unsecured Loan Account - Padma Raghupathy - SPP,,Liability
+2010240.004 - Unsecured Loan Account - R Ganesh Kumar - SPP,,Liability
+2010240.005 - Unsecured Loan Account - R Karthik - SPP,,Liability
+2020000 - Other Long Term Liability - SPP,,Liability
+2020200 - Long term Loans and Advances - SPP,,Liability
+2030000 - Long Term Provision - SPP,,Liability
+2030100 - Provision for Leave Encashment - SPP,,Liability
+2030200 - Provision for Gratuity - SPP,,Liability
+2040000 - Short-Term Borrowings - SPP,,Liability
+2040100 - Secured Short Term Loans - SPP,,Liability
+2040110 - Secured Long Term Loans from Bank - SPP,,Liability
+2040120 - Secured Long Term Loans from NBFC - SPP,,Liability
+2040130 - Secured Long Term Loans from Others - SPP,,Liability
+2040200 - Unsecured Short Term Loans - SPP,,Liability
+2040210 - Unsecured Long Term Loans from Bank - SPP,,Liability
+2040220 - Unsecured Long Term Loans from NBFC - SPP,,Liability
+2040230 - Unsecured Long Term Loans from Others - SPP,,Liability
+2050000 - Trade Payables - SPP,,Liability
+2060000 - Other Current Liability - SPP,,Liability
+2060100 - Statutory Liabilities Payable - SPP,,Liability
+2060110 - GST Payable - SPP,,Liability
+2060110.007 - GST Paid Control Account - SPP,,Liability
+2060120 - TDS Payable - SPP,,Liability
+2060120.001 - TDS Paid Control Account - SPP,,Liability
+2060130 - Employer's Statutory Contributions - SPP,,Liability
+2060130.001 - Professional Tax Payable - SPP,,Liability
+2060130.002 - Provident Fund Payable - SPP,,Liability
+2060130.003 - Labour Welfare Fund Payable - SPP,,Liability
+2060130.004 - ESI Payable - SPP,,Liability
+2060200 - Payable To Employees - SPP,,Liability
+2060200.001 - Staff Salary Payable - SPP,,Liability
+2060200.002 - Bonus Payable - SPP,,Liability
+2060200.003 - Full and Final Settlement Payable - SPP,,Liability
+2060300 - Advance from Customers - SPP,,Liability
+2060400 - Liability for Expenses - SPP,,Liability
+2060410 - Partners Remuneration Payable - SPP,,Liability
+2060410.001 - Partners Remuneration Payable - Aishwaraya Karthik - SPP,,Liability
+2060410.002 - Partners Remuneration Payable - Chitra Ganesh - SPP,,Liability
+2060410.003 - Partners Remuneration Payable - K Raghupathy - SPP,,Liability
+2060410.004 - Partners Remuneration Payable - Padma Raghupathy - SPP,,Liability
+2060410.005 - Partners Remuneration Payable - R Ganesh Kumar - SPP,,Liability
+2060410.006 - Partners Remuneration Payable - R Karthik - SPP,,Liability
+2060420 - Interest on Capital to Partners - SPP,,Liability
+2060420.001 - Capital Interest Payable - K Ragupathy - SPP,,Liability
+2060420.002 - Capital Interest Payable - Padma Raghupathy - SPP,,Liability
+2060420.003 - Capital Interest Payable - R Ganesh Kumar - SPP,,Liability
+2060420.004 - Capital Interest Payable - Chitra Ganesh - SPP,,Liability
+2060420.005 - Capital Interest Payable - R Karthick - SPP,,Liability
+2060430 - Interest on Unsecured Loans from Partners - SPP,,Liability
+2060430.001 - Interest Payable on Unsecured Loan - K Ragupathy - SPP,,Liability
+2060430.002 - Interest Payable on Unsecured Loan - Padma Raghupathy - SPP,,Liability
+2060430.003 - Interest Payable on Unsecured Loan - R Ganesh Kumar - SPP,,Liability
+2060430.004 - Interest Payable on Unsecured Loan - Chitra Ganesh - SPP,,Liability
+2060430.005 - Interest Payable on Unsecured Loan - R Karthick - SPP,,Liability
+2060500 - Liability for Capital Goods - SPP,,Liability
+2060600 - Migration Control Account - SPP,,Liability
+2070000 - Short-Term Provision - SPP,,Liability
+2070100 - Provision for Employees Benefit - SPP,,Liability
+2070200 - Provision for Income Tax - SPP,,Liability
+2070300 - Other Provision - SPP,,Liability
+2070300.001 - Provision For Audit Fees - SPP,,Liability
+2070300.002 - Provision For Outstanding Expenses - SPP,,Liability
+2080000 - Deferred Tax Liability (Net) - SPP,,Liability
+"3010000 - Property, Plant and Equipment and Intangible assets - SPP",,Asset
+3010100 - Tangible Assets - SPP,,Asset
+3010110 - Asset Tangibles - SPP,,Asset
+3010120 - Accumulated Depreciation - Tangible - SPP,,Asset
+3010130 - Capital Work In Progress - Tangible - SPP,,Asset
+3010200 - Intangible Assets - SPP,,Asset
+3010210 - Asset Inangibles - SPP,,Asset
+3010220 - Accumulated Amortization - Intangible - SPP,,Asset
+3010230 - Capital Work In Progress - Intangible - SPP,,Asset
+3020000 - Non Current Investments - SPP,,Asset
+3030000 - Inventories - SPP,,Asset
+3040000 - Deferred Tax Assets (Net) - SPP,,Asset
+3050000 - Long-Term Loans And Advances - SPP,,Asset
+3050100 - Capital Advances - SPP,,Asset
+3050200 - Loans and Advance to Partner - SPP,,Asset
+3050300 - Other Loans and Advance - SPP,,Asset
+3060000 - Trade Receivables - SPP,,Asset
+3070000 - Cash And Cash Equivalents - SPP,,Asset
+3070100 - Bank Accounts - SPP,,Asset
+3070200 - Cash In Hand - SPP,,Asset
+3070300 - Fixed Deposits - SPP,,Asset
+3080000 - Short-Term Loans and Advances - SPP,,Asset
+3080100 - Staff Loans & Advances - SPP,,Asset
+3080100.001 - Employee Advance - SPP,,Asset
+3080200 - Other Advance - SPP,,Asset
+3080200.001 - Other Advances - Short Term - SPP,,Asset
+3080300 - Unbilled Revenue - SPP,,Asset
+3080300.001 - Accrued Income - SPP,,Asset
+3090000 - Other Current Asset - SPP,,Asset
+3090100 - GST Input - SPP,,Asset
+3090100.004 - GST Input Unclaimed - SPP,,Asset
+3090200 - Prepaid Expenses - SPP,,Asset
+3090200.001 - Prepaid Expense - Insurance - SPP,,Asset
+3090200.002 - Prepaid Expense - AMC Charges - SPP,,Asset
+3090300 - Advance Paid to Suppliers - SPP,,Asset
+3090400 - Other Deposits - SPP,,Asset
+3090400.001 - Rental Deposits - SPP,,Asset
+3090500 - Subsidiary Receivable - SPP,,Asset
+3090600 - Migration Control Account - SPP,,Asset
+3090600.001 - Migration Control Account - Asset - SPP,,Asset
+3090700 - Staff Salary Advance - SPP,,Asset
+3090700.001 - Salary Advance to Staff - SPP,,Asset
+4010000 - Other Non Current Asset - SPP,,Asset
+4010100 - Deposits - SPP,,Asset
+4010100.001 - Electricity Deposit - SPP,,Asset
+4010200 - TDS & TCS Receivables - SPP,,Asset
+4010300 - Advance Tax - SPP,,Asset
+4010300.001 - Advance Tax AY 2022-2023 - SPP,,Asset
+4010300.002 - Advance Tax AY 2023-2024 - SPP,,Asset
+4010300.003 - Advance Tax AY 2024-2025 - SPP,,Asset
+4010300.004 - Advance Tax AY 2025-2026 - SPP,,Asset
+5010100 - Sale Of Products - SPP,,Income
+5020100 - Other Income - SPP,,Income
+6010000 - Direct Cost - SPP,,Expense
+6010100 - Cost Of Goods Sold - SPP,,Expense
+6010110 - Material Consumed - SPP,,Expense
+6010120 - Cost Of Labour - SPP,,Expense
+6010130 - Direct Overheads - SPP,,Expense
+6010140 - Fuel & Power - SPP,,Expense
+6020000 - Employee Benefit Expenses - SPP,,Expense
+6020100 - Salaries and Wages - SPP,,Expense
+6020200 - Partners Remuneration - SPP,,Expense
+6020300 - Contribution to EPF & ESI - SPP,,Expense
+6020400 - Staff Welfare - SPP,,Expense
+6030000 - Finance Cost - SPP,,Expense
+6030100 - Interest Cost - SPP,,Expense
+6030200 - Other Finance Cost - SPP,,Expense
+6040000 - Depreciation and Amortization expenses - SPP,,Expense
+6040100 - Depreciation - SPP,,Expense
+6040200 - Amortization - SPP,,Expense
+6050000 - Other Expense - SPP,,Expense
+6050100 - Professional Consultantcy Charges - SPP,,Expense
+6050200 - Rental Expenses - SPP,,Expense
+6050300 - Telephone & Data Expenses - SPP,,Expense
+6050400 - Office & Other Admin Expenses - SPP,,Expense
+6050500 - Travel&Conveyance - SPP,,Expense
+6050600 - Audit Fees - SPP,,Expense
+6050700 - Repair & Maintenance Expenses - SPP,,Expense
+6050800 - Postage Expenses - SPP,,Expense
+6050900 - Insurance Expenses - SPP,,Expense
+6051000 - Electricity Expenses - SPP,,Expense
+6051100 - Printing and Stationery - SPP,,Expense
+6051200 - Rates & Taxes - SPP,,Expense
+6051300 - Selling & Distribution Expenses - SPP,,Expense
+6051400 - Subscription and Membership Fees - SPP,,Expense
+6051500 - Books and Periodicals - SPP,,Expense
+6060000 - Deferred Tax Expenditure - SPP,,Expense
+6060100 - Donations - SPP,,Expense
+6070000 - Goodwill Written off - SPP,,Expense
+6070100 - Miscellaneous Expenses - SPP,,Expense
+6070100.001 - Other Miscellaneous Expenses - SPP,,Expense
+6070100.002 - Exchange Gain/Loss - SPP,,Expense
+6070100.005 - Write Off - SPP,,Expense
+7010000 - Current Tax - SPP,,Expense
+Application of Funds (Assets) - SPP,,Asset
+Current Assets - SPP,,Asset
+Current Liabilities - SPP,,Liability
+Direct Expenses - SPP,,Expense
+Duties and Taxes - SPP,,Liability
+Expenses - SPP,,Expense
+Income - SPP,,Income
+Source of Funds (Liabilities) - SPP,,Liability
+Stock Expenses - SPP,,Expense
+Temporary Accounts - SPP,,Asset
+3010120.001 - Accumulated Depreciations on Buildings - SPP,Accumulated Depreciation,Asset
+3010120.002 - Accumulated Depreciations on Plants and Machineries - SPP,Accumulated Depreciation,Asset
+3010120.003 - Accumulated Depreciations on Furnitures and Fixtures - SPP,Accumulated Depreciation,Asset
+3010120.004 - Accumulated Depreciations on Leasehold Improvements - SPP,Accumulated Depreciation,Asset
+3010120.005 - Accumulated Depreciations on Office Equipments - SPP,Accumulated Depreciation,Asset
+3010120.006 - Accumulated Depreciations on Computer and Peripherals - SPP,Accumulated Depreciation,Asset
+3010120.007 - Accumulated Depreciations on Electrical Equipment & Installation - SPP,Accumulated Depreciation,Asset
+3010120.008 - Accumulated Depreciations on Motor Cars & Two Wheelers - SPP,Accumulated Depreciation,Asset
+3010220.001 - Accumulated Amortization on Software - SPP,Accumulated Depreciation,Asset
+3010220.002 - Accumulated Amortization on Goodwill - SPP,Accumulated Depreciation,Asset
+3010220.003 - Accumulated Amortization on Trademark - SPP,Accumulated Depreciation,Asset
+3010110.001 - Asset Received But Not Billed - SPP,Asset Received But Not Billed,Asset
+3070100.001 - Punjab National Bank OD A/C - 8732 - SPP,Bank,Asset
+3070100.002 - Punjab National Bank  A/c - 0384 - SPP,Bank,Asset
+3070100.003 - ICICI Bank  A/C  - 9771 - SPP,Bank,Asset
+3070100.004 - Punjab National Bank A/C - 3269 - SPP,Bank,Asset
+3070100.005 - AB Group Gratuity A/c - 2357 - SPP,Bank,Asset
+3070100.006 - ICICI Bank Trade A/C - 1200 - SPP,Bank,Asset
+3070100.007 - Union Bank of India A/C - 0469 - SPP,Bank,Asset
+3070300.001 - Fixed Deposit - TIIC Limited - SPP,Bank,Asset
+3070300.002 - Fixed Deposit - SIDBI - SPP,Bank,Asset
+3010130.001 - Capital Work In Progress-Buildings - SPP,Capital Work in Progress,Asset
+3010130.002 - Capital Work In Progress-Furnitures and Fixtures - SPP,Capital Work in Progress,Asset
+3010130.003 - Capital Work In Progress-Plants and Machineries - SPP,Capital Work in Progress,Asset
+3010130.004 - Capital Work In Progress-Motor Cars & Two Wheelers - SPP,Capital Work in Progress,Asset
+3010130.005 - Capital Work In Progress-Electronic Equipments - SPP,Capital Work in Progress,Asset
+3010130.006 - Capital Work In Progress-Computer and Peripherals - SPP,Capital Work in Progress,Asset
+3010130.007 - Capital Work In Progress-Office Equipments - SPP,Capital Work in Progress,Asset
+3010130.008 - Capital Work In Progress-Leasehold Improvements - SPP,Capital Work in Progress,Asset
+3010230.001 - Capital Work In Progress- Software - SPP,Capital Work in Progress,Asset
+3070200.001 - Factory Cash Account - Kottivakkam - SPP,Cash,Asset
+3070200.002 - Office Cash Account - SPP,Cash,Asset
+3070200.003 - Factory Cash Account - Ambattur - SPP,Cash,Asset
+6010100.001 - Cost of Goods Sold - SPP,Cost of Goods Sold,Expense
+6040100.001 - Depreciation - SPP,Depreciation,Expense
+6010110.001 - Consumables - SPP,Direct Expense,Expense
+6010120.001 - Salary to Staff - Direct Cost - SPP,Direct Expense,Expense
+6010120.002 - Staff Variable Pay - Direct Cost - SPP,Direct Expense,Expense
+6010120.003 - Bonus  - Direct Cost - SPP,Direct Expense,Expense
+6010120.004 - Incentive - Direct Cost - SPP,Direct Expense,Expense
+6010120.005 - Leave encashment - Direct Cost - SPP,Direct Expense,Expense
+6010120.006 - Leave Travel Allowance - Direct Cost - SPP,Direct Expense,Expense
+6010120.007 - Other Perquisites - Direct Cost - SPP,Direct Expense,Expense
+6010120.008 - Employer Contribution to PF - Direct Cost - SPP,Direct Expense,Expense
+6010120.009 - PF Administration Charges - Direct Cost - SPP,Direct Expense,Expense
+6010120.010 - Employer Contribution to ESI - Direct Cost - SPP,Direct Expense,Expense
+6010120.011 - Employee Group Insurance - Direct Cost - SPP,Direct Expense,Expense
+6010120.012 - Labour Charges - SPP,Direct Expense,Expense
+6010120.013 - Contract Charges - SPP,Direct Expense,Expense
+6010120.014 - Gratuity Expenses - SPP,Direct Expense,Expense
+6010130.001 - Factory Expenses - SPP,Direct Expense,Expense
+6010130.002 - Packing Materials - SPP,Direct Expense,Expense
+6010130.003 - Freight Inwards - SPP,Direct Expense,Expense
+6010130.004 - Forwarding Charges - SPP,Direct Expense,Expense
+6010130.005 - Testing Charges - SPP,Direct Expense,Expense
+6010130.006 - Calibration Services - SPP,Direct Expense,Expense
+6010130.007 - Material Handling Charges - SPP,Direct Expense,Expense
+6010130.008 - Machinery Hire Charges - SPP,Direct Expense,Expense
+6010130.009 - Security Charges - Direct Cost - SPP,Direct Expense,Expense
+6010130.010 - Stock Insurance - SPP,Direct Expense,Expense
+6010140.001 - Diesel Expenses - SPP,Direct Expense,Expense
+6010140.002 - Electricity Charges - Direct Cost - SPP,Direct Expense,Expense
+5010100.001 - Sales - SPP,Direct Income,Income
+6020100.001 - Salary to Staff - SPP,Expense Account,Expense
+6020100.002 - Staff Variable Pay - SPP,Expense Account,Expense
+6020100.003 - Bonus - SPP,Expense Account,Expense
+6020100.004 - Incentive - SPP,Expense Account,Expense
+6020100.005 - Leave encashment - SPP,Expense Account,Expense
+6020100.006 - Leave Travel Allowance - SPP,Expense Account,Expense
+6020100.007 - Other Perquisites - SPP,Expense Account,Expense
+6020200.001 - Salary to Partners - SPP,Expense Account,Expense
+6020300.001 - Employer Contribution to PF - SPP,Expense Account,Expense
+6020300.002 - PF Administration Charges - SPP,Expense Account,Expense
+6020300.003 - Employer Contribution to ESI - SPP,Expense Account,Expense
+6020300.004 - Professional tax - SPP,Expense Account,Expense
+6020400.001 - Medical Expenses - SPP,Expense Account,Expense
+6020400.002 - Food & Beverages - SPP,Expense Account,Expense
+6020400.003 - Other Staff Welfare Expenses - SPP,Expense Account,Expense
+6020400.004 - Pooja expenses - SPP,Expense Account,Expense
+6020400.005 - Employee Group Insurance - SPP,Expense Account,Expense
+6030100.001 - Interest on Borrowings - Bank - SPP,Expense Account,Expense
+6030100.002 - Interest On Borrowings - Financial Institution - SPP,Expense Account,Expense
+6030100.003 - Interest On Borrowings - Partners - SPP,Expense Account,Expense
+6030200.001 - Bank Charges - SPP,Expense Account,Expense
+6030200.002 - GST Late Filling Charges - SPP,Expense Account,Expense
+6030200.003 - Interest On TDS - SPP,Expense Account,Expense
+6050100.001 - Consultancy Fees - SPP,Expense Account,Expense
+6050100.002 - Professional Charges - SPP,Expense Account,Expense
+6050100.003 - Secretarial Services - SPP,Expense Account,Expense
+6050100.004 - License & Fees - SPP,Expense Account,Expense
+6050100.005 - Legal Services - SPP,Expense Account,Expense
+6050100.006 - Security Charges - SPP,Expense Account,Expense
+6050100.007 - Retainer Charges - SPP,Expense Account,Expense
+6050100.008 - Registration Charges - SPP,Expense Account,Expense
+6050100.009 - Software Charges - SPP,Expense Account,Expense
+6050200.001 - Rent Office Premises - SPP,Expense Account,Expense
+6050200.002 - Rent - Contract  Labour - SPP,Expense Account,Expense
+6050300.001 - Telephone Expenses - SPP,Expense Account,Expense
+6050300.002 - Internet Charges - SPP,Expense Account,Expense
+6050400.001 - Other Office Expenses - SPP,Expense Account,Expense
+6050400.002 - Office cleaning expenses - SPP,Expense Account,Expense
+6050400.003 - Annual Maintenance Charges - Office Equipments - SPP,Expense Account,Expense
+6050500.001 - Travelling Expenses - Air fare - SPP,Expense Account,Expense
+6050500.002 - Travelling Expenses - Train/Bus Fare - SPP,Expense Account,Expense
+6050500.003 - Travelling Expenses - Cab Hire Charges - SPP,Expense Account,Expense
+6050500.004 - Travelling Expenses - Local Conveyance - SPP,Expense Account,Expense
+6050600.001 - Tax Audit Fees - SPP,Expense Account,Expense
+6050600.002 - Statutory Audit Fees - SPP,Expense Account,Expense
+6050600.003 - Certification Fees - SPP,Expense Account,Expense
+6050600.004 - Out of Pocket Expenes - SPP,Expense Account,Expense
+6050600.005 - Internal Audit Fees - SPP,Expense Account,Expense
+6050700.001 - Repairs & Maintenance - Office Vehicles - SPP,Expense Account,Expense
+6050700.002 - Repairs & Maintenance - Office Equipments - SPP,Expense Account,Expense
+6050700.003 - Repairs & Maintenance - Office Premises - SPP,Expense Account,Expense
+6050800.001 - Courier Charges - SPP,Expense Account,Expense
+6050800.002 - Postal Expenses - SPP,Expense Account,Expense
+6050900.001 - Insurance Expenses - Office Vehicles - SPP,Expense Account,Expense
+6050900.002 - Insurance Expenses - Others - SPP,Expense Account,Expense
+6051100.001 - Printing Expenses - SPP,Expense Account,Expense
+6051100.002 - Stationery Expenses - SPP,Expense Account,Expense
+6051200.001 - Property Tax - SPP,Expense Account,Expense
+6051200.002 - Water & Sewage Tax - SPP,Expense Account,Expense
+6051200.003 - Other Rates & Taxes - SPP,Expense Account,Expense
+6051300.001 - Freight Outwards - SPP,Expense Account,Expense
+6051300.002 - Brokerage & Commission - SPP,Expense Account,Expense
+6051300.003 - Discount - SPP,Expense Account,Expense
+6051300.004 - Damages & Deductions - SPP,Expense Account,Expense
+6051300.005 - Business Promotion Expenses - SPP,Expense Account,Expense
+6051300.006 - Advertisement Expenses - SPP,Expense Account,Expense
+6051400.001 - Subscription Charges - SPP,Expense Account,Expense
+6051500.001 - Books and Periodicals Expenses - SPP,Expense Account,Expense
+6060100.001 - Donation Expenses - SPP,Expense Account,Expense
+6070100.006 - Migration Control Account - Expense - SPP,Expense Account,Expense
+Expenses Included In Valuation - SPP,Expenses Included In Valuation,Expense
+3010110.002 - Buildings - SPP,Fixed Asset,Asset
+3010110.003 - Furnitures and Fixtures - SPP,Fixed Asset,Asset
+3010110.004 - Office Equipments - SPP,Fixed Asset,Asset
+3010110.005 - Plants and Machineries - SPP,Fixed Asset,Asset
+3010110.006 - Computer and Peripherals - SPP,Fixed Asset,Asset
+3010110.007 - Leasehold Improvements - SPP,Fixed Asset,Asset
+3010110.008 - Motor Cars & Two Wheelers - SPP,Fixed Asset,Asset
+3010110.009 - Electrical Equipment & Installation - SPP,Fixed Asset,Asset
+3010210.001 - Software - SPP,Fixed Asset,Asset
+3010210.002 - Goodwill - SPP,Fixed Asset,Asset
+3010210.003 - Trademark - SPP,Fixed Asset,Asset
+5010000 - Direct Income - SPP,Income Account,Income
+5020000 - Indirect Income - SPP,Income Account,Income
+5020100.001 - Interest received from Fixed Deposit - SPP,Income Account,Income
+5020100.002 - Sale of Scrap - SPP,Income Account,Income
+5020100.003 - Grant Received - SPP,Income Account,Income
+5020100.004 - Commision Received - SPP,Income Account,Income
+5020100.005 - Profit on Sale of Asset - SPP,Income Account,Income
+5020100.006 - Interest on Income Tax Refund - SPP,Income Account,Income
+5020100.007 - Migration Control Account - Income - SPP,Income Account,Income
+1020000.001 - Profit & Loss Account - SPP,Liability,Liability
+2060600.001 - Migration Control Account - Liability - SPP,Liability,Liability
+205000.001 - Creditors - SPP,Payable,Liability
+2060200.004 - Expenses Claim Payable - SPP,Payable,Liability
+3090300.001 - Advance to Suppliers - SPP,Payable,Asset
+2060300.001 - Advance Received from Customers - SPP,Receivable,Liability
+306000.001 - Debtors - SPP,Receivable,Asset
+6070100.004 - Rounded Off - SPP,Round Off,Expense
+3030000.001 - Inventory - Aranvoyal Factory I - SPP,Stock,Asset
+3030000.002 - Inventory -  Kottivakkam Factory II - SPP,Stock,Asset
+Stock Assets - SPP,Stock,Asset
+Stock In Hand - SPP,Stock,Asset
+6010110.002 - Stock Adjustment - SPP,Stock Adjustment,Expense
+205000.002 - Stock Received But Not Billed - SPP,Stock Received But Not Billed,Liability
+2060110.001 - Output Tax CGST - SPP,Tax,Liability
+2060110.002 - Output Tax SGST - SPP,Tax,Liability
+2060110.003 - Output Tax IGST - SPP,Tax,Liability
+2060110.004 - Input Tax CGST RCM - SPP,Tax,Liability
+2060110.005 - Input Tax SGST RCM - SPP,Tax,Liability
+2060110.006 - Input Tax IGST RCM - SPP,Tax,Liability
+2060120.002 - TDS Payable - 194A - Interest - SPP,Tax,Liability
+2060120.003 - TDS Payable - 192B - Salary - SPP,Tax,Liability
+2060120.004 - TDS Payable - 194C - Individuals - SPP,Tax,Liability
+2060120.005 - TDS Payable - 194C - Others - SPP,Tax,Liability
+2060120.006 - TDS Payable - 194H - Commission/Brokerage - SPP,Tax,Liability
+2060120.007 - TDS Payable - 194I - Rent - SPP,Tax,Liability
+2060120.008 - TDS Payable - 194I - Equipment Hire - SPP,Tax,Liability
+2060120.009 - TDS Payable - 194J - Professional - SPP,Tax,Liability
+2060120.010 - TDS Payable - 194J - Technical - SPP,Tax,Liability
+2060120.011 - TDS Payable - 194Q - Purchase of Goods - SPP,Tax,Liability
+2060120.012 - TDS Payable 194T - Renumerations to Partners - SPP,Tax,Liability
+3090100.001 - Input Tax CGST - SPP,Tax,Asset
+3090100.002 - Input Tax SGST - SPP,Tax,Asset
+3090100.003 - Input Tax IGST - SPP,Tax,Asset
+3090100.005 - Electronic Credit Ledger CGST - SPP,Tax,Asset
+3090100.006 - CGST Electronic Cash Ledger - SPP,Tax,Asset
+3090100.007 - SGST Electronic Cash Ledger - SPP,Tax,Asset
+3090100.008 - GST Ineligble Input Credit - SPP,Tax,Asset
+3090100.009 - GST Eligble Input Credit - SPP,Tax,Asset
+4010200.001 - TDS Receivables - SPP,Tax,Asset
+4010200.002 - TCS Receivables - SPP,Tax,Asset
+6070100.003 - GST Expense - SPP,Tax,Expense
+Customs Duty Expense - SPP,Tax,Expense
+Customs Duty Payable - SPP,Tax,Liability
+TDS Payable - SPP,Tax,Liability
+Temporary Opening - SPP,Temporary,Asset

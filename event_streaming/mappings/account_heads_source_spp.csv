@@ -1,0 +1,177 @@
+source_account,account_type,root_type,target_account,notes
+Accounts Payable - SPP INDIA,,Liability,,TODO: Map to target account
+Accounts Receivable - SPP INDIA,,Asset,,TODO: Map to target account
+Administrative Expenses - SPP INDIA,,Expense,,TODO: Map to target account
+Application of Funds (Assets) - SPP INDIA,,Asset,,TODO: Map to target account
+Bank Overdraft Account - SPP INDIA,,Liability,,TODO: Map to target account
+Blank Bins - SPP INDIA,,Asset,,TODO: Map to target account
+Capital Account - SPP INDIA,,Liability,,TODO: Map to target account
+Commission on Sales - SPP INDIA,,Expense,,TODO: Map to target account
+Current Assets - SPP INDIA,,Asset,,TODO: Map to target account
+Current Liabilities - SPP INDIA,,Liability,,TODO: Map to target account
+Direct Expenses - SPP INDIA,,Expense,,TODO: Map to target account
+Duties and Taxes - SPP INDIA,,Liability,,TODO: Map to target account
+Earnest Money - SPP INDIA,,Asset,,TODO: Map to target account
+Entertainment Expenses - SPP INDIA,,Expense,,TODO: Map to target account
+Exchange Gain/Loss - SPP INDIA,,Expense,,TODO: Map to target account
+Expenses - SPP INDIA,,Expense,,TODO: Map to target account
+Fixed Assets - SPP INDIA,,Asset,,TODO: Map to target account
+Freight/ Forwarding/Packing/Transport Charges @ 5% IGST - SPP INDIA,,Expense,,TODO: Map to target account
+Gain/Loss on Asset Disposal - SPP INDIA,,Expense,,TODO: Map to target account
+Income - SPP INDIA,,Income,,TODO: Map to target account
+Indirect Expenses - SPP INDIA,,Expense,,TODO: Map to target account
+Installation Charges - SPP INDIA,,Asset,,TODO: Map to target account
+Investments - SPP INDIA,,Asset,,TODO: Map to target account
+Legal Expenses - SPP INDIA,,Expense,,TODO: Map to target account
+Loans (Liabilities) - SPP INDIA,,Liability,,TODO: Map to target account
+Loans and Advances (Assets) - SPP INDIA,,Asset,,TODO: Map to target account
+Marketing Expenses - SPP INDIA,,Expense,,TODO: Map to target account
+Miscellaneous Expenses - SPP INDIA,,Expense,,TODO: Map to target account
+Office Rent - SPP INDIA,,Expense,,TODO: Map to target account
+Other Advance - SPP INDIA,,Asset,,TODO: Map to target account
+Payroll Payable - SPP INDIA,,Liability,,TODO: Map to target account
+Postal Expenses - SPP INDIA,,Expense,,TODO: Map to target account
+Reserves and Surplus - SPP INDIA,,Liability,,TODO: Map to target account
+Salary - SPP INDIA,,Expense,,TODO: Map to target account
+Sales Expenses - SPP INDIA,,Expense,,TODO: Map to target account
+Secured Loans - SPP INDIA,,Liability,,TODO: Map to target account
+Securities and Deposits - SPP INDIA,,Asset,,TODO: Map to target account
+Shareholders Funds - SPP INDIA,,Liability,,TODO: Map to target account
+Source of Funds (Liabilities) - SPP INDIA,,Liability,,TODO: Map to target account
+Staff Welfare - Tea / Coffee - SPP INDIA,,Expense,,TODO: Map to target account
+Stock Expenses - SPP INDIA,,Expense,,TODO: Map to target account
+Stock Liabilities - SPP INDIA,,Liability,,TODO: Map to target account
+Tax Assets - SPP INDIA,,Asset,,TODO: Map to target account
+Temporary Accounts - SPP INDIA,,Asset,,TODO: Map to target account
+Travel Expenses - SPP INDIA,,Expense,,TODO: Map to target account
+Unsecured Loans - SPP INDIA,,Liability,,TODO: Map to target account
+Utility Expenses - SPP INDIA,,Expense,,TODO: Map to target account
+Write Off - SPP INDIA,,Expense,,TODO: Map to target account
+Accumulated Depreciations - SPP INDIA,Accumulated Depreciation,Asset,,TODO: Map to target account
+Fixed Assets U2 - SPP INDIA,Asset Received But Not Billed,Asset,,TODO: Map to target account
+0345002100273269 - Punjab National bank - SPP INDIA,Bank,Asset,,TODO: Map to target account
+0345009300300384 - Punjab National Bank - SPP INDIA,Bank,Liability,,TODO: Map to target account
+602605054154 - Shree Polymer Products - 602605054154 - SPP INDIA,Bank,Asset,,TODO: Map to target account
+602705039771 - Shree Polymer Products - 602705039771 - SPP INDIA,Bank,Liability,,TODO: Map to target account
+602705039846 - Shree Polyme Products - 602705039846 - SPP INDIA,Bank,Liability,,TODO: Map to target account
+602705041200 - Shree Polymer Proudcts - 602705041200 - SPP INDIA,Bank,Asset,,TODO: Map to target account
+Bank Accounts - SPP INDIA,Bank,Asset,,TODO: Map to target account
+Bank OCC Account - SPP INDIA,Bank,Liability,,TODO: Map to target account
+Cash - Ambattur Branch - SPP INDIA,Cash,Asset,,TODO: Map to target account
+Cash - Kottivakkam Branch - SPP INDIA,Cash,Asset,,TODO: Map to target account
+Cash - SPP INDIA,Cash,Asset,,TODO: Map to target account
+Cash In Hand - SPP INDIA,Cash,Asset,,TODO: Map to target account
+Freight and Forwarding Charges - SPP INDIA,Chargeable,Expense,,TODO: Map to target account
+Cost of Goods Sold - SPP INDIA,Cost of Goods Sold,Expense,6010100.001 - Cost of Goods Sold - SPP,Main expense account for purchase receipts
+Depreciation - SPP INDIA,Depreciation,Expense,,TODO: Map to target account
+AMC Charges - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Business Promotion - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Calibration Charges - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Consumable Purchase - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Consumables - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Consumables @ 18% GST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Consumables @ 5% GST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Consumables1 - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Contract Charges - GST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Diesel Expenses - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Electricity - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Factory Expenses - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Freight /Handing/Packing/Transport charges - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Freight charges - Inward - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Freight Charges - Outward - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Freight Charges - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Freight/ Forwarding/Packing/Transport Charges - GST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Freight/ Forwarding/Packing/Transport Charges - IGST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Freight/ Forwarding/Packing/Transport Charges @ 18% GST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Freight/ Forwarding/Packing/Transport Charges @ 18% IGST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Freight/ Forwarding/Packing/Transport Charges @ 5% GST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Insurance - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Interest and Bank Charges - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Labour Charges - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Labour charges @ 12% GST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Labour charges Exp - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Material Handing Charges - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Office Expenses - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Office Maintenance - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Office Maintenance Wages - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Packing Materials @ 18% GST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Pooja Expenses - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Postage and Telegram - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Print and Stationary - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Professional Charges - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Purchase Account - GST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Purchase Account - IGST  @ 18% - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Purchase Account - IGST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Purchase Account - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Purchase Account @ 12% GST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Purchase Account @ 5% GST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Purchase Account @18% GST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Purchase Account GST - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Rent - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Repairs and Maintenance - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Repairs and Maintenances - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Security Charges - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Staff Advance - SPP INDIA,Expense Account,Asset,,TODO: Map to target account
+Staff Welfare - Lunch - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Staff Welfare - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Staff Welfare - Water - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Staff Welfare General - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Staff Welfare Prov - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Telephone Expenses - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Testing Charges - Lab - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Testing Charges - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Vehicle - Diesel Expenses - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Vehicle Expenses - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Vehicle Maintenance - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+VRE - Petrol Expenses - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+VRE -KR/RG/RK/CG - Petrol Expenses - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Wages - SPP INDIA,Expense Account,Expense,,TODO: Map to target account
+Expenses Included In Valuation - SPP INDIA,Expenses Included In Valuation,Expense,,TODO: Map to target account
+Buildings - SPP INDIA,Fixed Asset,Asset,,TODO: Map to target account
+Capital Equipments - SPP INDIA,Fixed Asset,Asset,,TODO: Map to target account
+Computer / Laptop - SPP INDIA,Fixed Asset,Asset,,TODO: Map to target account
+Electronic Equipments - SPP INDIA,Fixed Asset,Asset,,TODO: Map to target account
+Furnitures and Fixtures - SPP INDIA,Fixed Asset,Asset,,TODO: Map to target account
+Mould - SPP INDIA,Fixed Asset,Asset,,TODO: Map to target account
+Office Equipments - SPP INDIA,Fixed Asset,Asset,,TODO: Map to target account
+Plants and Machineries - SPP INDIA,Fixed Asset,Asset,,TODO: Map to target account
+Direct Income - SPP INDIA,Income Account,Income,,TODO: Map to target account
+Indirect Income - SPP INDIA,Income Account,Income,,TODO: Map to target account
+Sales - SPP INDIA,Income Account,Income,,TODO: Map to target account
+Service - SPP INDIA,Income Account,Income,,TODO: Map to target account
+Creditors - SPP INDIA,Payable,Liability,Creditors - SPP,Accounts payable
+Expenses Payable - SPP INDIA,Payable,Liability,,TODO: Map to target account
+R Karthik Expenses Payable - SPP INDIA,Payable,Liability,,TODO: Map to target account
+Debtors - SPP INDIA,Receivable,Asset,Debtors - SPP,Accounts receivable
+Debtors EUR - SPP INDIA,Receivable,Asset,,TODO: Map to target account
+Rounded Off - SPP INDIA,Round Off,Expense,,TODO: Map to target account
+Stock Assets - SPP INDIA,Stock,Asset,Stock Assets - SPP,Stock asset account
+Stock In Hand - SPP INDIA,Stock,Asset,Stock In Hand - SPP,Stock in hand account  
+Stock Adjustment - SPP INDIA,Stock Adjustment,Expense,,TODO: Map to target account
+Stock Received But Not Billed - SPP INDIA,Stock Received But Not Billed,Liability,205000.002 - Stock Received But Not Billed - SPP,SRNB account
+CGST - SPP INDIA,Tax,Liability,,TODO: Map to target account
+Customs Duty Expense - SPP INDIA,Tax,Expense,,TODO: Map to target account
+Customs Duty Payable - SPP INDIA,Tax,Liability,,TODO: Map to target account
+GST Expense - SPP INDIA,Tax,Expense,,TODO: Map to target account
+IGST - SPP INDIA,Tax,Liability,,TODO: Map to target account
+IGST 5% - SPP INDIA,Tax,Liability,,TODO: Map to target account
+Input Tax CGST - SPP INDIA,Tax,Asset,,TODO: Map to target account
+Input Tax CGST RCM - SPP INDIA,Tax,Liability,,TODO: Map to target account
+Input Tax IGST - SPP INDIA,Tax,Asset,,TODO: Map to target account
+Input Tax IGST RCM - SPP INDIA,Tax,Liability,,TODO: Map to target account
+Input Tax SGST - SPP INDIA,Tax,Asset,,TODO: Map to target account
+Input Tax SGST RCM - SPP INDIA,Tax,Liability,,TODO: Map to target account
+Output Tax CGST - SPP INDIA,Tax,Liability,,TODO: Map to target account
+Output Tax CGST RCM - SPP INDIA,Tax,Liability,,TODO: Map to target account
+Output Tax IGST - SPP INDIA,Tax,Liability,,TODO: Map to target account
+Output Tax IGST RCM - SPP INDIA,Tax,Liability,,TODO: Map to target account
+Output Tax SGST - SPP INDIA,Tax,Liability,,TODO: Map to target account
+Output Tax SGST RCM - SPP INDIA,Tax,Liability,,TODO: Map to target account
+SGST - SPP INDIA,Tax,Liability,,TODO: Map to target account
+TDS - SPP INDIA,Tax,Liability,,TODO: Map to target account
+TDS 94C - SPP INDIA,Tax,Liability,,TODO: Map to target account
+TDS Payable - SPP INDIA,Tax,Liability,,TODO: Map to target account
+VAT 14% - SPP INDIA,Tax,Liability,,TODO: Map to target account
+VAT 4% - SPP INDIA,Tax,Liability,,TODO: Map to target account
+VAT 5% - SPP INDIA,Tax,Liability,,TODO: Map to target account
+Temporary Opening - SPP INDIA,Temporary,Asset,,TODO: Map to target account
