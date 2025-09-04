@@ -31,27 +31,27 @@ frappe.ui.form.on('SPP Supplier Mapping', {
 		}
 	},
 	
-	source_site: function(frm) {
-		if (frm.doc.source_site === frm.doc.target_site) {
-			frappe.msgprint(__('Source site and target site cannot be the same'));
-			frm.set_value('source_site', '');
+	producer_site: function(frm) {
+		if (frm.doc.producer_site === frm.doc.consumer_site) {
+			frappe.msgprint(__('Producer site and consumer site cannot be the same'));
+			frm.set_value('producer_site', '');
 		}
 	},
 	
-	target_site: function(frm) {
-		if (frm.doc.source_site === frm.doc.target_site) {
-			frappe.msgprint(__('Source site and target site cannot be the same'));
-			frm.set_value('target_site', '');
+	consumer_site: function(frm) {
+		if (frm.doc.producer_site === frm.doc.consumer_site) {
+			frappe.msgprint(__('Producer site and consumer site cannot be the same'));
+			frm.set_value('consumer_site', '');
 		}
 	}
 });
 
 frappe.ui.form.on('SPP Supplier Mapping Detail', {
-	source_supplier: function(frm, cdt, cdn) {
+	producer_supplier: function(frm, cdt, cdn) {
 		let row = locals[cdt][cdn];
-		if (!row.target_supplier) {
-			// Auto-fill target with source if empty
-			frappe.model.set_value(cdt, cdn, 'target_supplier', row.source_supplier);
+		if (!row.consumer_supplier) {
+			// Auto-fill consumer with producer if empty
+			frappe.model.set_value(cdt, cdn, 'consumer_supplier', row.producer_supplier);
 		}
 	}
 });
@@ -65,7 +65,7 @@ function import_supplier_csv_mapping(frm) {
 				fieldname: 'csv_file',
 				label: __('CSV File'),
 				reqd: 1,
-				description: __('CSV file should have columns: source_supplier, target_supplier, supplier_group')
+				description: __('Preferred headers: producer_supplier, consumer_supplier, supplier_group. Backward compatible: source_supplier / target_supplier.')
 			}
 		],
 		primary_action_label: __('Import'),
@@ -75,21 +75,11 @@ function import_supplier_csv_mapping(frm) {
 				return;
 			}
 			
-			frappe.call({
-				method: 'frappe.client.get_file',
-				args: {
-					file_url: values.csv_file
-				},
-				callback: function(r) {
-					if (r.message) {
-						frm.call('import_csv_mapping', {
-							csv_data: r.message
-						}).then(() => {
-							frm.refresh();
-							frappe.msgprint(__('CSV import completed successfully'));
-						});
-					}
-				}
+			frm.call('import_csv_mapping', {
+				csv_file_url: values.csv_file
+			}).then(() => {
+				frm.reload_doc();
+				frappe.msgprint(__('CSV import completed successfully'));
 			});
 			
 			this.hide();
@@ -103,22 +93,23 @@ function test_supplier_mapping(frm) {
 		fields: [
 			{
 				fieldtype: 'Data',
-				fieldname: 'source_supplier',
-				label: __('Source Supplier'),
+				fieldname: 'producer_supplier',
+				label: __('Producer Supplier'),
 				reqd: 1
 			}
 		],
 		primary_action_label: __('Test'),
 		primary_action: function(values) {
-			let target_supplier = frm.doc.supplier_mappings.find(
-				sup => sup.source_supplier === values.source_supplier && sup.is_active
+			let row = (frm.doc.supplier_mappings || []).find(
+				sup => (sup.producer_supplier || sup.source_supplier) === values.producer_supplier && sup.is_active
 			);
+			let consumer_supplier = row ? (row.consumer_supplier || row.target_supplier) : null;
 			
-			if (target_supplier) {
+			if (consumer_supplier) {
 				frappe.msgprint(__('Mapping Result: {0} → {1}', 
-					[values.source_supplier, target_supplier.target_supplier]));
+					[values.producer_supplier, consumer_supplier]));
 			} else {
-				frappe.msgprint(__('No mapping found for supplier: {0}', [values.source_supplier]));
+				frappe.msgprint(__('No mapping found for supplier: {0}', [values.producer_supplier]));
 			}
 			
 			this.hide();
@@ -127,10 +118,10 @@ function test_supplier_mapping(frm) {
 }
 
 function export_supplier_csv_mapping(frm) {
-	let csv_data = 'source_supplier,target_supplier,supplier_group,is_active,notes\n';
+	let csv_data = 'producer_supplier,consumer_supplier,supplier_group,is_active,notes\n';
 	
-	frm.doc.supplier_mappings.forEach(sup => {
-		csv_data += `"${sup.source_supplier}","${sup.target_supplier}","${sup.supplier_group || ''}","${sup.is_active}","${sup.notes || ''}"\n`;
+	(frm.doc.supplier_mappings || []).forEach(sup => {
+		csv_data += `"${sup.producer_supplier || sup.source_supplier}","${sup.consumer_supplier || sup.target_supplier}","${sup.supplier_group || ''}","${sup.is_active}","${sup.notes || ''}"\n`;
 	});
 	
 	// Create and download CSV file

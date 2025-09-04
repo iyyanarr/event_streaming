@@ -5,8 +5,8 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "source_supplier",
-  "target_supplier",
+  "producer_supplier",
+  "consumer_supplier",
   "column_break_3",
   "supplier_group",
   "is_active",
@@ -14,17 +14,17 @@
  ],
  "fields": [
   {
-   "fieldname": "source_supplier",
+   "fieldname": "producer_supplier",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Source Supplier",
+   "label": "Producer Supplier",
    "reqd": 1
   },
   {
-   "fieldname": "target_supplier",
+   "fieldname": "consumer_supplier",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Target Supplier",
+   "label": "Consumer Supplier",
    "reqd": 1
   },
   {

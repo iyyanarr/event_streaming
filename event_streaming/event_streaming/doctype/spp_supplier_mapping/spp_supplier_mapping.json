@@ -9,8 +9,8 @@
  "field_order": [
   "mapping_name",
   "section_break_2",
-  "source_site",
-  "target_site",
+  "producer_site",
+  "consumer_site",
   "column_break_5",
   "company_mapping",
   "is_active",
@@ -30,17 +30,17 @@
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "source_site",
+   "fieldname": "producer_site",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Source Site",
+   "label": "Producer Site",
    "reqd": 1
   },
   {
-   "fieldname": "target_site",
+   "fieldname": "consumer_site",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Target Site",
+   "label": "Consumer Site",
    "reqd": 1
   },
   {
