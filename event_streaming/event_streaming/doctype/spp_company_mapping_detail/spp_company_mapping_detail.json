@@ -5,25 +5,25 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "source_company",
-  "target_company",
+  "producer_company",
+  "consumer_company",
   "column_break_3",
   "is_active",
   "notes"
  ],
  "fields": [
   {
-   "fieldname": "source_company",
+   "fieldname": "producer_company",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Source Company",
+   "label": "Producer Company",
    "reqd": 1
   },
   {
-   "fieldname": "target_company",
+   "fieldname": "consumer_company",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Target Company",
+   "label": "Consumer Company",
    "reqd": 1
   },
   {

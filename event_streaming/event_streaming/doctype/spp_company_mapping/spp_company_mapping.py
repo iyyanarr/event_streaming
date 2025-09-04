@@ -8,60 +8,72 @@ from frappe.model.document import Document
 
 class SPPCompanyMapping(Document):
 	def validate(self):
-		self.validate_duplicate_source_companies()
-		self.validate_sites()
-	
-	def validate_duplicate_source_companies(self):
-		"""Ensure no duplicate source company names in the mapping"""
-		source_companies = []
-		for company in self.company_mappings:
-			if company.source_company in source_companies:
-				frappe.throw(_("Row #{0}: Duplicate source company {1}").format(
-					company.idx, frappe.bold(company.source_company)
-				))
-			source_companies.append(company.source_company)
-	
-	def validate_sites(self):
-		"""Validate source and target sites"""
-		if self.source_site == self.target_site:
-			frappe.throw(_("Source site and target site cannot be the same"))
-	
-	def get_target_company(self, source_company):
-		"""Get target company for a given source company"""
-		if not self.is_active:
-			return source_company
-			
-		for company in self.company_mappings:
-			if company.source_company == source_company and company.is_active:
-				return company.target_company
+		"""Validate company mapping entries"""
+		if not self.company_mappings:
+			frappe.throw(_("Please add at least one company mapping"))
 		
-		# Return source company if no mapping found
-		return source_company
+		# Check for duplicate producer companies
+		producer_companies = []
+		for mapping in self.company_mappings:
+			if mapping.producer_company in producer_companies:
+				frappe.throw(_("Duplicate producer company: {0}").format(mapping.producer_company))
+			producer_companies.append(mapping.producer_company)
 	
-	def get_source_company(self, target_company):
-		"""Get source company for a given target company (reverse mapping)"""
-		if not self.is_active:
-			return target_company
-			
-		for company in self.company_mappings:
-			if company.target_company == target_company and company.is_active:
-				return company.source_company
-		
-		# Return target company if no mapping found
-		return target_company
+	def get_consumer_company(self, producer_company):
+		"""Get the consumer company for a given producer company"""
+		for mapping in self.company_mappings:
+			if mapping.producer_company == producer_company:
+				return mapping.consumer_company
+		return producer_company  # Return original if no mapping found
 
 
 @frappe.whitelist()
-def get_company_mapping_for_sites(source_site, target_site, source_company):
+def get_company_mapping_for_sites(producer_site, consumer_site, producer_company):
 	"""Get company mapping between two sites for a specific company"""
 	mapping = frappe.db.get_value(
 		"SPP Company Mapping",
-		{"source_site": source_site, "target_site": target_site, "is_active": 1},
+		{"producer_site": producer_site, "consumer_site": consumer_site, "is_active": 1},
 		"name"
 	)
 	
 	if mapping:
 		doc = frappe.get_doc("SPP Company Mapping", mapping)
-		return doc.get_target_company(source_company)
+		return doc.get_consumer_company(producer_company)
 	
-	return source_company
+	return producer_company
+
+
+@frappe.whitelist()
+def bulk_create_company_mappings_from_csv(file_path, mapping_name, producer_site, consumer_site):
+	"""Create company mappings from CSV file"""
+	import csv
+	
+	# Create or get existing mapping document
+	existing_mapping = frappe.db.get_value(
+		"SPP Company Mapping", 
+		{"mapping_name": mapping_name}
+	)
+	
+	if existing_mapping:
+		doc = frappe.get_doc("SPP Company Mapping", existing_mapping)
+		doc.company_mappings = []  # Clear existing mappings
+	else:
+		doc = frappe.new_doc("SPP Company Mapping")
+		doc.mapping_name = mapping_name
+		doc.producer_site = producer_site
+		doc.consumer_site = consumer_site
+	
+	# Read CSV and create mappings
+	with open(file_path, 'r', encoding='utf-8') as csvfile:
+		reader = csv.DictReader(csvfile)
+		for row in reader:
+			if row.get('Producer Company') and row.get('Consumer Company'):
+				doc.append("company_mappings", {
+					"producer_company": row['Producer Company'].strip(),
+					"consumer_company": row['Consumer Company'].strip()
+				})
+	
+	doc.save()
+	frappe.db.commit()
+	
+	return f"Created company mapping '{mapping_name}' with {len(doc.company_mappings)} entries"

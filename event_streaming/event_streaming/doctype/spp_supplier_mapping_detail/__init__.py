@@ -1,0 +1,1 @@
+# SPP Supplier Mapping Detail DocType

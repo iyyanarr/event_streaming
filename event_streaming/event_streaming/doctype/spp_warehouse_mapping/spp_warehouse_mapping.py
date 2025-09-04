@@ -8,139 +8,84 @@ from frappe.model.document import Document
 
 class SPPWarehouseMapping(Document):
 	def validate(self):
-		self.validate_duplicate_source_warehouses()
-		self.validate_sites()
-	
-	def validate_duplicate_source_warehouses(self):
-		"""Ensure no duplicate source warehouse names in the mapping"""
-		source_warehouses = []
-		for warehouse in self.warehouse_mappings:
-			if warehouse.source_warehouse in source_warehouses:
-				frappe.throw(_("Row #{0}: Duplicate source warehouse {1}").format(
-					warehouse.idx, frappe.bold(warehouse.source_warehouse)
+		"""Validate warehouse mapping entries"""
+		if not self.warehouse_mappings:
+			frappe.throw(_("Please add at least one warehouse mapping"))
+		
+		# Check for duplicate producer warehouses within same item group
+		producer_warehouses = {}
+		for mapping in self.warehouse_mappings:
+			key = f"{mapping.producer_warehouse}|{mapping.item_group or 'All'}"
+			if key in producer_warehouses:
+				frappe.throw(_("Duplicate producer warehouse '{0}' for item group '{1}'").format(
+					mapping.producer_warehouse, mapping.item_group or 'All'
 				))
-			source_warehouses.append(warehouse.source_warehouse)
+			producer_warehouses[key] = True
 	
-	def validate_sites(self):
-		"""Validate source and target sites"""
-		if self.source_site == self.target_site:
-			frappe.throw(_("Source site and target site cannot be the same"))
-	
-	def get_target_warehouse(self, source_warehouse, item_group=None):
-		"""Get target warehouse for a given source warehouse with optional item group filtering"""
-		if not self.is_active:
-			return source_warehouse
-			
-		for warehouse in self.warehouse_mappings:
-			if warehouse.source_warehouse == source_warehouse and warehouse.is_active:
-				# Check item group filter if specified
-				if item_group and warehouse.item_group_filter:
-					item_groups = [ig.strip() for ig in warehouse.item_group_filter.split(',')]
-					if item_group not in item_groups:
-						continue
-				return warehouse.target_warehouse
+	def get_consumer_warehouse(self, producer_warehouse, item_group=None):
+		"""Get the consumer warehouse for a given producer warehouse"""
+		# First try to find specific item group mapping
+		if item_group:
+			for mapping in self.warehouse_mappings:
+				if mapping.producer_warehouse == producer_warehouse and mapping.item_group == item_group:
+					return mapping.consumer_warehouse
 		
-		# Return source warehouse if no mapping found
-		return source_warehouse
-	
-	def get_source_warehouse(self, target_warehouse):
-		"""Get source warehouse for a given target warehouse (reverse mapping)"""
-		if not self.is_active:
-			return target_warehouse
-			
-		for warehouse in self.warehouse_mappings:
-			if warehouse.target_warehouse == target_warehouse and warehouse.is_active:
-				return warehouse.source_warehouse
+		# Fallback to general mapping (no item group specified)
+		for mapping in self.warehouse_mappings:
+			if mapping.producer_warehouse == producer_warehouse and not mapping.item_group:
+				return mapping.consumer_warehouse
 		
-		# Return target warehouse if no mapping found
-		return target_warehouse
-
-	@frappe.whitelist()
-	def import_csv_mapping(self, csv_data):
-		"""Import warehouse mappings from CSV data"""
-		import csv
-		import io
-		
-		# Clear existing mappings
-		self.warehouse_mappings = []
-		
-		# Parse CSV data
-		reader = csv.DictReader(io.StringIO(csv_data))
-		for row in reader:
-			if row.get('Old Warehouse') and row.get('New Warehouse'):
-				self.append('warehouse_mappings', {
-					'source_warehouse': row['Old Warehouse'].strip(),
-					'target_warehouse': row['New Warehouse'].strip(),
-					'company': row.get('', '').strip() if row.get('') else None,
-					'warehouse_type': row.get('', '').strip() if row.get('') else None,
-					'item_group_filter': row.get('Item Group', '').strip() if row.get('Item Group') else None,
-					'is_active': 1
-				})
-		
-		self.save()
-		frappe.msgprint(_("Successfully imported {0} warehouse mappings").format(len(self.warehouse_mappings)))
+		return producer_warehouse  # Return original if no mapping found
 
 
 @frappe.whitelist()
-def get_warehouse_mapping_for_sites(source_site, target_site, source_warehouse, item_group=None):
+def get_warehouse_mapping_for_sites(producer_site, consumer_site, producer_warehouse, item_group=None):
 	"""Get warehouse mapping between two sites for a specific warehouse"""
 	mapping = frappe.db.get_value(
 		"SPP Warehouse Mapping",
-		{"source_site": source_site, "target_site": target_site, "is_active": 1},
+		{"producer_site": producer_site, "consumer_site": consumer_site, "is_active": 1},
 		"name"
 	)
 	
 	if mapping:
 		doc = frappe.get_doc("SPP Warehouse Mapping", mapping)
-		return doc.get_target_warehouse(source_warehouse, item_group)
+		return doc.get_consumer_warehouse(producer_warehouse, item_group)
 	
-	return source_warehouse
+	return producer_warehouse
 
 
 @frappe.whitelist()
-def bulk_create_warehouse_mappings_from_csv(file_path, mapping_name, source_site, target_site):
+def bulk_create_warehouse_mappings_from_csv(file_path, mapping_name, producer_site, consumer_site):
 	"""Create warehouse mappings from CSV file"""
-	try:
-		# Check if mapping already exists
-		if frappe.db.exists("SPP Warehouse Mapping", mapping_name):
-			frappe.throw(_("Mapping with name {0} already exists").format(mapping_name))
-		
-		# Create new mapping document
+	import csv
+	
+	# Create or get existing mapping document
+	existing_mapping = frappe.db.get_value(
+		"SPP Warehouse Mapping", 
+		{"mapping_name": mapping_name}
+	)
+	
+	if existing_mapping:
+		doc = frappe.get_doc("SPP Warehouse Mapping", existing_mapping)
+		doc.warehouse_mappings = []  # Clear existing mappings
+	else:
 		doc = frappe.new_doc("SPP Warehouse Mapping")
 		doc.mapping_name = mapping_name
-		doc.source_site = source_site
-		doc.target_site = target_site
-		doc.is_active = 1
-		
-		# Read CSV file and create mappings
-		import csv
-		with open(file_path, 'r') as file:
-			reader = csv.DictReader(file)
-			for row in reader:
-				if row.get('Old Warehouse') and row.get('New Warehouse'):
-					doc.append('warehouse_mappings', {
-						'source_warehouse': row['Old Warehouse'].strip(),
-						'target_warehouse': row['New Warehouse'].strip(),
-						'company': row.get('', '').strip() if row.get('') else None,
-						'warehouse_type': row.get('', '').strip() if row.get('') else None,
-						'item_group_filter': row.get('Item Group', '').strip() if row.get('Item Group') else None,
-						'is_active': 1
-					})
-		
-		doc.save()
-		frappe.db.commit()
-		
-		return {
-			"status": "success",
-			"message": _("Successfully created mapping {0} with {1} warehouses").format(
-				mapping_name, len(doc.warehouse_mappings)
-			),
-			"mapping_name": mapping_name
-		}
-		
-	except Exception as e:
-		frappe.log_error(f"Error creating warehouse mapping: {str(e)}")
-		return {
-			"status": "error", 
-			"message": str(e)
-		}
+		doc.producer_site = producer_site
+		doc.consumer_site = consumer_site
+	
+	# Read CSV and create mappings
+	with open(file_path, 'r', encoding='utf-8') as csvfile:
+		reader = csv.DictReader(csvfile)
+		for row in reader:
+			if row.get('Producer Warehouse') and row.get('Consumer Warehouse'):
+				doc.append("warehouse_mappings", {
+					"producer_warehouse": row['Producer Warehouse'].strip(),
+					"consumer_warehouse": row['Consumer Warehouse'].strip(),
+					"item_group": row.get('Item Group', '').strip() if row.get('Item Group') else None
+				})
+	
+	doc.save()
+	frappe.db.commit()
+	
+	return f"Created warehouse mapping '{mapping_name}' with {len(doc.warehouse_mappings)} entries"

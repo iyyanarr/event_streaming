@@ -1,0 +1,1 @@
+# SPP Account Mapping Detail DocType

@@ -2,20 +2,20 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:mapping_name",
- "creation": "2025-09-04 06:40:00.000000",
+ "creation": "2025-09-04 07:10:00.000000",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "mapping_name",
   "section_break_2",
-  "producer_site",
-  "consumer_site",
+  "source_site",
+  "target_site",
   "column_break_5",
   "company_mapping",
   "is_active",
   "section_break_8",
-  "warehouse_mappings"
+  "supplier_mappings"
  ],
  "fields": [
   {
@@ -30,17 +30,17 @@
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "producer_site",
+   "fieldname": "source_site",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Producer Site",
+   "label": "Source Site",
    "reqd": 1
   },
   {
-   "fieldname": "consumer_site",
+   "fieldname": "target_site",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Consumer Site",
+   "label": "Target Site",
    "reqd": 1
   },
   {
@@ -65,19 +65,19 @@
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "warehouse_mappings",
+   "fieldname": "supplier_mappings",
    "fieldtype": "Table",
-   "label": "Warehouse Mappings",
-   "options": "SPP Warehouse Mapping Detail",
+   "label": "Supplier Mappings",
+   "options": "SPP Supplier Mapping Detail",
    "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-04 06:40:00.000000",
+ "modified": "2025-09-04 07:10:00.000000",
  "modified_by": "Administrator",
  "module": "Event Streaming",
- "name": "SPP Warehouse Mapping",
+ "name": "SPP Supplier Mapping",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [

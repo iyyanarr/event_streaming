@@ -1,30 +1,30 @@
 {
  "actions": [],
- "creation": "2025-09-04 06:55:00.000000",
+ "creation": "2025-09-04 07:05:00.000000",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "producer_item_code",
-  "consumer_item_code",
+  "source_account",
+  "target_account",
   "column_break_3",
-  "item_group",
+  "account_type",
   "is_active",
   "notes"
  ],
  "fields": [
   {
-   "fieldname": "producer_item_code",
+   "fieldname": "source_account",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Producer Item Code",
+   "label": "Source Account",
    "reqd": 1
   },
   {
-   "fieldname": "consumer_item_code",
+   "fieldname": "target_account",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Consumer Item Code",
+   "label": "Target Account",
    "reqd": 1
   },
   {
@@ -32,10 +32,10 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "item_group",
-   "fieldtype": "Link",
-   "label": "Item Group",
-   "options": "Item Group"
+   "fieldname": "account_type",
+   "fieldtype": "Select",
+   "label": "Account Type",
+   "options": "\nAsset\nLiability\nIncome\nExpense\nEquity"
   },
   {
    "default": "1",
@@ -53,10 +53,10 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-04 06:55:00.000000",
+ "modified": "2025-09-04 07:05:00.000000",
  "modified_by": "Administrator",
  "module": "Event Streaming",
- "name": "SPP Item Mapping Detail",
+ "name": "SPP Account Mapping Detail",
  "owner": "Administrator",
  "permissions": [],
  "sort_field": "modified",
