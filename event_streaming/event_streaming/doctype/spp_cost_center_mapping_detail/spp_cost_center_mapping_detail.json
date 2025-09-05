@@ -1,0 +1,66 @@
+{
+ "actions": [],
+ "creation": "2025-09-05 07:30:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "producer_cost_center",
+  "consumer_cost_center",
+  "column_break_3",
+  "company",
+  "is_active",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "producer_cost_center",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Producer Cost Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "consumer_cost_center",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Consumer Cost Center",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-09-05 07:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Event Streaming",
+ "name": "SPP Cost Center Mapping Detail",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

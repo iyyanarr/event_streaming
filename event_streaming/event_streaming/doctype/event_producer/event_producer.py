@@ -163,8 +163,10 @@ class EventProducer(Document):
 		if self.is_producer_online():
 			producer_site = get_producer_site(self.producer_url)
 			event_consumer = producer_site.get_doc("Event Consumer", get_url())
-			event_consumer = frappe._dict(event_consumer)
+			
+			# Check if event_consumer exists before converting to frappe._dict
 			if event_consumer:
+				event_consumer = frappe._dict(event_consumer)
 				config = event_consumer.consumer_doctypes
 				event_consumer.consumer_doctypes = []
 				for entry in self.producer_doctypes:
@@ -185,6 +187,10 @@ class EventProducer(Document):
 				event_consumer.user = self.user
 				event_consumer.incoming_change = True
 				producer_site.update(event_consumer)
+			else:
+				# Event Consumer doesn't exist on producer site, create it
+				frappe.msgprint(_("Event Consumer does not exist on producer site. Creating a new one."))
+				self.create_event_consumer()
 
 	def is_producer_online(self):
 		"""check connection status for the Event Producer site"""
@@ -457,6 +463,8 @@ def sync_dependencies(document, producer_site):
 			linked_doctype = doc.get(df.options)
 			if docname and not check_dependency_fulfilled(linked_doctype, docname):
 				master_doc = producer_site.get_doc(linked_doctype, docname)
+				# Apply SPP value mappings to dependency if Document Type Mapping exists
+				master_doc = apply_spp_mappings_to_dependency(master_doc, linked_doctype)
 				frappe.get_doc(master_doc).insert(set_name=docname)
 
 	def set_dependencies(doc, link_fields, producer_site):
@@ -466,16 +474,104 @@ def sync_dependencies(document, producer_site):
 			if docname and not check_dependency_fulfilled(linked_doctype, docname):
 				master_doc = producer_site.get_doc(linked_doctype, docname)
 				try:
+					# Apply SPP value mappings to dependency if Document Type Mapping exists
+					master_doc = apply_spp_mappings_to_dependency(master_doc, linked_doctype)
 					master_doc = frappe.get_doc(master_doc)
 					master_doc.insert(set_name=docname)
 					frappe.db.commit()
 
-				# for dependency inside a dependency
-				except Exception:
-					dependencies[master_doc] = True
+				except Exception as e:
+					# Log dependency error
+					frappe.log_error(
+						f"Dependency Error: {linked_doctype} {docname} - {str(e)}",
+						"Dependency Error"
+					)
+					# for dependency inside a dependency
+					if master_doc not in dependencies:
+						dependencies[master_doc] = True
 
 	def check_dependency_fulfilled(linked_doctype, docname):
-		return frappe.db.exists(linked_doctype, docname)
+		"""Check if dependency exists, considering SPP mappings for scenarios where 
+		data exists on both sides but with different naming conventions"""
+		# First try exact name match (current behavior)
+		if frappe.db.exists(linked_doctype, docname):
+			return True
+		
+		# If not found with exact name, try to find using SPP mappings
+		try:
+			# Check if there's a Document Type Mapping for this doctype
+			mapping_name = frappe.db.get_value(
+				"Document Type Mapping", 
+				{"local_doctype": linked_doctype}, 
+				"name"
+			)
+			
+			if mapping_name:
+				# Get the mapping document to access SPP mapping functions
+				mapping_doc = frappe.get_doc("Document Type Mapping", mapping_name)
+				
+				# Try to get the mapped value for this docname
+				mapped_name = get_spp_mapped_name(linked_doctype, docname, mapping_doc)
+				
+				if mapped_name and mapped_name != docname:
+					# Check if the mapped name exists
+					if frappe.db.exists(linked_doctype, mapped_name):
+						frappe.logger().info(f"Found SPP mapped dependency: {linked_doctype} {docname} → {mapped_name}")
+						return True
+			
+		except Exception as e:
+			# Log but don't fail - fall back to original behavior
+			frappe.logger().debug(f"SPP mapping check failed for {linked_doctype} {docname}: {str(e)}")
+		
+		return False
+
+	def get_spp_mapped_name(linked_doctype, docname, mapping_doc):
+		"""Get the SPP mapped name for a given doctype and name"""
+		try:
+			# Map the name based on doctype using SPP mapping logic
+			if linked_doctype == "Item":
+				return mapping_doc.get_item_mapping(docname)
+			elif linked_doctype == "Supplier":
+				return mapping_doc.get_supplier_mapping(docname)
+			elif linked_doctype == "Warehouse":
+				return mapping_doc.get_warehouse_mapping(docname)
+			elif linked_doctype == "Company":
+				return mapping_doc.get_company_mapping(docname)
+			elif "Account" in linked_doctype:
+				return mapping_doc.get_account_mapping(docname)
+			else:
+				# For other doctypes, check if there's a custom mapping
+				return mapping_doc.get_mapped_value("name", docname)
+				
+		except Exception as e:
+			frappe.logger().debug(f"Failed to get SPP mapped name for {linked_doctype} {docname}: {str(e)}")
+			return None
+
+	def apply_spp_mappings_to_dependency(master_doc, linked_doctype):
+		"""Apply SPP value mappings to dependency document if Document Type Mapping exists"""
+		try:
+			# Check if there's a Document Type Mapping for this dependency doctype
+			mapping_name = frappe.db.get_value(
+				"Document Type Mapping", 
+				{"local_doctype": linked_doctype}, 
+				"name"
+			)
+			
+			if mapping_name:
+				# Get the Document Type Mapping and apply SPP value mappings
+				mapping_doc = frappe.get_doc("Document Type Mapping", mapping_name)
+				master_doc = mapping_doc.apply_value_mappings(master_doc)
+				frappe.logger().info(f"Applied SPP mappings to dependency {linked_doctype}: {master_doc.get('name')}")
+			
+			return master_doc
+			
+		except Exception as e:
+			# If SPP mapping fails, log error but continue with original data
+			frappe.log_error(
+				f"SPP Mapping Error for dependency {linked_doctype}: {str(e)}",
+				"SPP Dependency Mapping Error"
+			)
+			return master_doc
 
 	while dependencies[document]:
 		# find the first non synced dependency
