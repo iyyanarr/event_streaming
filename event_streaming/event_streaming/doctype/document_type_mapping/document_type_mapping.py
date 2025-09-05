@@ -487,7 +487,15 @@ class DocumentTypeMapping(Document):
 				"Document Type Field Mapping",
 				{"local_fieldname": local_table_name, "parent": self.name},
 				"mapping",
-			)
+				)
+			
+			# Skip if no mapping configuration found for this table
+			if not table_map:
+				frappe.logger().warning(f"No Document Type Mapping found for table '{tablename}', skipping value mapping")
+				# Just copy the entries as-is without mapping
+				mapping.get(operation)[local_table_name or tablename] = entries
+				continue
+				
 			table_map = frappe.get_doc("Document Type Mapping", table_map)
 			docs = []
 			for entry in entries:
