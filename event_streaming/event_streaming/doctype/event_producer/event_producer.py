@@ -663,3 +663,17 @@ def resync(update):
 		update = get_mapped_update(update, producer_site)
 		update.data = json.loads(update.data)
 	return sync(update, producer_site, event_producer, in_retry=True)
+
+
+@frappe.whitelist()
+def scheduled_pull_from_node():
+    """Pull updates from all approved producers via scheduler"""
+    for event_producer in frappe.get_all("Event Producer", filters={"status": "Approved"}):
+        try:
+            pull_from_node(event_producer.name)
+        except Exception as e:
+            frappe.log_error(
+                title="Event Producer Scheduled Pull Failed",
+                message=f"Failed to pull from {event_producer.name}: {str(e)}\n{frappe.get_traceback()}"
+            )
+            continue

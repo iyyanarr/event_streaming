@@ -96,7 +96,7 @@ def get_update(old, new, for_child=False):
 	return None
 
 
-def make_event_update_log(doc, update_type, sync_type="Real Time"):
+def make_event_update_log(doc, update_type):
 	"""Save update info for doctypes that have event consumers"""
 	if update_type != "Delete":
 		# diff for update type, doc for create type
@@ -110,7 +110,6 @@ def make_event_update_log(doc, update_type, sync_type="Real Time"):
 			"ref_doctype": doc.doctype,
 			"docname": doc.name,
 			"data": data,
-			"sync_type": sync_type
 		}
 	).insert(ignore_permissions=True)
 
@@ -254,47 +253,48 @@ def get_unread_update_logs(consumer_name, dt, dn):
 	return logs
 
 
-def get_producer_from_consumer(consumer_name):
-	"""Get the producer URL from a consumer name"""
-	# The consumer name is typically the URL of the consumer site
-	return frappe.db.get_value("Event Producer", {"name": consumer_name}, "producer_url")
-
 @frappe.whitelist()
-def get_update_logs_for_consumer(event_consumer, doctypes, last_update=None):
+def get_update_logs_for_consumer(event_consumer, doctypes, last_update):
 	"""
-	Get update logs for the consumer
-	Args:
-		event_consumer: name of the event consumer
-		doctypes: list of doctypes to get updates for
-		last_update: last known update timestamp
+	Fetches all the UpdateLogs for the consumer
+	It will inject old un-consumed Update Logs if a doc was just found to be accessible to the Consumer
 	"""
-	conditions = ["consumer = %(event_consumer)s", "ref_doctype in %(doctypes)s"]
 
-	if last_update:
-		conditions.append("creation > %(last_update)s")
-		
-	# Get date filter conditions from Event Producer
-	producer = frappe.get_doc("Event Producer", {"name": get_producer_from_consumer(event_consumer)})
-	if producer.enable_date_filter:
-		filter_field = "creation" if producer.date_filter_type == "Creation Date" else "modified"
-		if producer.from_date:
-			conditions.append(f"{filter_field} >= %(from_date)s")
-		if producer.to_date:
-			conditions.append(f"{filter_field} <= %(to_date)s")
+	if isinstance(doctypes, str):
+		doctypes = frappe.parse_json(doctypes)
 
-	records = frappe.db.get_all(
-		"Event Update Log",
-		fields=["update_type", "ref_doctype", "docname", "data", "name", "creation", "mapping"],
-		filters={"status": ["in", ["Pending", "Ignored"]]},
-		conditions=conditions,
-		order_by="creation asc",
-		params={
-			"event_consumer": event_consumer,
-			"doctypes": doctypes,
-			"last_update": last_update,
-			"from_date": producer.from_date if producer.enable_date_filter else None,
-			"to_date": producer.to_date if producer.enable_date_filter else None
-		}
+	from event_streaming.event_streaming.doctype.event_consumer.event_consumer import has_consumer_access
+
+	consumer = frappe.get_doc("Event Consumer", event_consumer)
+	docs = frappe.get_list(
+		doctype="Event Update Log",
+		filters={"ref_doctype": ("in", doctypes), "creation": (">", last_update)},
+		fields=["update_type", "ref_doctype", "docname", "data", "name", "creation"],
+		order_by="creation desc",
 	)
 
-	return records
+	result = []
+	to_update_history = []
+	for d in docs:
+		if (d.ref_doctype, d.docname) in to_update_history:
+			# will be notified by background jobs
+			continue
+
+		if not has_consumer_access(consumer=consumer, update_log=d):
+			continue
+
+		if not is_consumer_uptodate(d, consumer):
+			to_update_history.append((d.ref_doctype, d.docname))
+			# get_unread_update_logs will have the current log
+			old_logs = get_unread_update_logs(consumer.name, d.ref_doctype, d.docname)
+			if old_logs:
+				old_logs.reverse()
+				result.extend(old_logs)
+		else:
+			result.append(d)
+
+	for d in result:
+		mark_consumer_read(update_log_name=d.name, consumer_name=consumer.name)
+
+	result.reverse()
+	return result
