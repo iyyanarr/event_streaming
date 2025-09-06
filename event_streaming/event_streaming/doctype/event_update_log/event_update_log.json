@@ -47,6 +47,14 @@
    "label": "Consumers",
    "options": "Event Update Log Consumer",
    "read_only": 1
+  },
+  {
+   "fieldname": "sync_type",
+   "fieldtype": "Select",
+   "label": "Sync Type",
+   "options": "Real Time\nHistorical",
+   "default": "Real Time",
+   "read_only": 1
   }
  ],
  "in_create": 1,

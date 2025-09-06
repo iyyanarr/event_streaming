@@ -114,23 +114,20 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-#	"all": [
-#		"event_streaming.tasks.all"
-#	],
-#	"daily": [
-#		"event_streaming.tasks.daily"
-#	],
-#	"hourly": [
-#		"event_streaming.tasks.hourly"
-#	],
-#	"weekly": [
-#		"event_streaming.tasks.weekly"
-#	],
-#	"monthly": [
-#		"event_streaming.tasks.monthly"
-#	],
-# }
+scheduler_events = {
+    "all": [
+        "event_streaming.event_streaming.doctype.event_producer.event_producer.pull_producer_data"
+    ],
+    "daily": [],
+    "hourly": [],
+    "weekly": [],
+    "monthly": [],
+    "cron": {
+        "*/15 * * * *": [  # Every 15 minutes
+            "event_streaming.event_streaming.doctype.event_producer.event_producer.scheduled_pull_from_node"
+        ]
+    }
+}
 
 # Testing
 # -------
