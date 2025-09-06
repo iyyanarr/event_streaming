@@ -31,7 +31,7 @@ def execute():
                 "fieldname": "date_filter_type",
                 "fieldtype": "Select",
                 "label": "Filter By",
-                "options": "Creation Date\nModified Date"
+                "options": "Creation Date\nModified Date\nTransaction Date\nPosting Date"
             },
             {
                 "fieldname": "from_date",

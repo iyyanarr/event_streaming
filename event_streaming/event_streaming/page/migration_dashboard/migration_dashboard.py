@@ -96,16 +96,22 @@ def get_producer_data_preview(producer_url, filters):
         producer = frappe.get_doc("Event Producer", producer_url)
         producer_site = get_producer_site(producer)
         
-        # Ensure date_filter_type matches the expected values
-        date_filter_type = filters.get("date_filter_type")
-        if date_filter_type == "creation":
-            date_filter_type = "Creation Date"
-        elif date_filter_type == "modified":
-            date_filter_type = "Modified Date"
-        elif date_filter_type == "transaction":
-            date_filter_type = "Transaction Date"
-        elif date_filter_type == "posting":
-            date_filter_type = "Posting Date"
+        # Map API filter values to display values
+        filter_type_mapping = {
+            "creation": "Creation Date",
+            "modified": "Modified Date",
+            "transaction": "Transaction Date",
+            "posting": "Posting Date"
+        }
+        
+        # Valid filter types for validation
+        valid_filter_types = ["Creation Date", "Modified Date", "Transaction Date", "Posting Date"]
+        
+        # Convert API filter type to display value
+        date_filter_type = filter_type_mapping.get(filters.get("date_filter_type"))
+        
+        if not date_filter_type or date_filter_type not in valid_filter_types:
+            frappe.throw(_("Invalid date filter type. Must be one of: Creation Date, Modified Date, Transaction Date, Posting Date"))
             
         stats = {
             "total_documents": 0,
@@ -118,13 +124,16 @@ def get_producer_data_preview(producer_url, filters):
             "estimated_time": "0 minutes"
         }
         
+        # Map display filter types to database fields
+        field_mapping = {
+            "Creation Date": "creation",
+            "Modified Date": "modified", 
+            "Transaction Date": "transaction_date",
+            "Posting Date": "posting_date"
+        }
+        
         for doctype in filters.get("doctypes", []):
-            filter_field = {
-                "Creation Date": "creation",
-                "Modified Date": "modified",
-                "Transaction Date": "transaction_date",
-                "Posting Date": "posting_date"
-            }.get(date_filter_type)
+            filter_field = field_mapping.get(date_filter_type)
             
             date_filters = []
             if filters.get("from_date"):
@@ -140,10 +149,10 @@ def get_producer_data_preview(producer_url, filters):
                     date_filters.append([filter_field, "<=", to_date])
                 else:
                     date_filters.append([filter_field, "<=", filters["to_date"]])
-                
+
             # Add filter for non-canceled documents
-            date_filters.append(["docstatus", "<", 2])  # 0=Draft, 1=Submitted, 2=Cancelled
-                
+            date_filters.append(["docstatus", "<", 2])
+
             try:
                 # Get count of records matching the filter by getting all records with just the name field
                 records = producer_site.get_list(doctype, 
@@ -269,11 +278,19 @@ def start_bulk_migration(migration_config):
     try:
         config = json.loads(migration_config) if isinstance(migration_config, str) else migration_config
         
-        # Ensure date filter type matches the allowed values
-        if config.get("date_filter_type") == "creation":
-            config["date_filter_type"] = "Creation Date"
-        elif config.get("date_filter_type") == "modified":
-            config["date_filter_type"] = "Modified Date"
+        # Map API filter values to display values
+        filter_type_mapping = {
+            "creation": "Creation Date",
+            "modified": "Modified Date",
+            "transaction": "Transaction Date",
+            "posting": "Posting Date"
+        }
+        
+        # Convert filter type to display value
+        config["date_filter_type"] = filter_type_mapping.get(config.get("date_filter_type"))
+        
+        if not config.get("date_filter_type") or config["date_filter_type"] not in ["Creation Date", "Modified Date", "Transaction Date", "Posting Date"]:
+            frappe.throw(_("Invalid date filter type. Must be one of: Creation Date, Modified Date, Transaction Date, Posting Date"))
             
         if not config.get("producer"):
             frappe.throw(_("Producer URL is required"))
@@ -380,8 +397,9 @@ def process_doctype_migration(job, producer, producer_site, doctype):
             
         # Skip if doctype doesn't have the selected date field
         if filter_field not in ["creation", "modified"]:
-            meta = producer_site.get("DocType", doctype)
-            if not any(f.get("fieldname") == filter_field for f in meta.fields):
+            meta = producer_site.get_doc("DocType", doctype)
+            # Access fields from the dictionary instead of attribute
+            if not any(f.get("fieldname") == filter_field for f in meta.get("fields", [])):
                 frappe.logger().warning(f"Skipping {doctype} as it doesn't have field {filter_field}")
                 processed = json.loads(job.processed_doctypes or "{}")
                 processed[doctype] = {"total": 0, "processed": 0, "skipped": True, 
