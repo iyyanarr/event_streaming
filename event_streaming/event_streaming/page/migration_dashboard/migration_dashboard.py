@@ -102,6 +102,10 @@ def get_producer_data_preview(producer_url, filters):
             date_filter_type = "Creation Date"
         elif date_filter_type == "modified":
             date_filter_type = "Modified Date"
+        elif date_filter_type == "transaction":
+            date_filter_type = "Transaction Date"
+        elif date_filter_type == "posting":
+            date_filter_type = "Posting Date"
             
         stats = {
             "total_documents": 0,
@@ -115,24 +119,53 @@ def get_producer_data_preview(producer_url, filters):
         }
         
         for doctype in filters.get("doctypes", []):
-            # Build filters for the producer site query
-            doc_filters = {}
-            if filters.get("from_date") and filters.get("to_date"):
-                filter_field = "creation" if date_filter_type == "Creation Date" else "modified"
-                doc_filters[filter_field] = ["between", [filters["from_date"], filters["to_date"]]]
+            filter_field = {
+                "Creation Date": "creation",
+                "Modified Date": "modified",
+                "Transaction Date": "transaction_date",
+                "Posting Date": "posting_date"
+            }.get(date_filter_type)
             
-            # Get total count first
-            total_count = len(producer_site.get_list(doctype, 
-                filters=doc_filters,
-                limit_page_length=0
-            ))
+            date_filters = []
+            if filters.get("from_date"):
+                if filter_field in ["transaction_date", "posting_date"]:
+                    from_date = filters["from_date"].split("T")[0] if isinstance(filters["from_date"], str) else filters["from_date"]
+                    date_filters.append([filter_field, ">=", from_date])
+                else:
+                    date_filters.append([filter_field, ">=", filters["from_date"]])
+                    
+            if filters.get("to_date"):
+                if filter_field in ["transaction_date", "posting_date"]:
+                    to_date = filters["to_date"].split("T")[0] if isinstance(filters["to_date"], str) else filters["to_date"]
+                    date_filters.append([filter_field, "<=", to_date])
+                else:
+                    date_filters.append([filter_field, "<=", filters["to_date"]])
+                
+            # Add filter for non-canceled documents
+            date_filters.append(["docstatus", "<", 2])  # 0=Draft, 1=Submitted, 2=Cancelled
+                
+            try:
+                # Get count of records matching the filter by getting all records with just the name field
+                records = producer_site.get_list(doctype, 
+                    fields=["name"],
+                    filters=date_filters,
+                    limit_page_length=0  # No limit to get all records
+                )
+                total_count = len(records)
+            except Exception as e:
+                frappe.logger().error(f"Error getting count for {doctype}: {str(e)}")
+                total_count = 0
             
-            # Get sample entries for preview
-            sample_entries = producer_site.get_list(doctype,
-                filters=doc_filters,
-                fields=["name", "creation", "modified", "owner"],
-                limit_page_length=5
-            )
+            # Get sample entries (limited to 5)
+            try:
+                sample_entries = producer_site.get_list(doctype, 
+                    fields=["name", "creation", "modified", "owner", filter_field, "docstatus"],
+                    filters=date_filters,
+                    limit_page_length=5
+                )
+            except Exception as e:
+                frappe.logger().error(f"Error getting sample entries for {doctype}: {str(e)}")
+                sample_entries = []
             
             stats["doctypes"][doctype] = {
                 "count": total_count,
@@ -142,6 +175,10 @@ def get_producer_data_preview(producer_url, filters):
                 })
             }
             stats["total_documents"] += total_count
+            
+            # Log the filters and results for debugging
+            frappe.logger().debug(f"Date filters for {doctype}: {date_filters}")
+            frappe.logger().debug(f"Total count for {doctype}: {total_count}")
 
         # Estimate time (rough estimate: 2 seconds per document)
         total_minutes = round((stats["total_documents"] * 2) / 60)
@@ -318,19 +355,46 @@ def process_doctype_migration(job, producer, producer_site, doctype):
     """Process migration for a single doctype by pulling from producer site"""
     try:
         # Build filters
-        filter_field = "creation" if job.date_filter_type == "Creation Date" else "modified"
-        filters = {}
+        filter_field = {
+            "Creation Date": "creation",
+            "Modified Date": "modified",
+            "Transaction Date": "transaction_date",
+            "Posting Date": "posting_date"
+        }.get(job.date_filter_type, "creation")
+        
+        filters = []
         if job.get("from_date") and job.get("to_date"):
             # Convert datetime objects to ISO format strings for JSON serialization
             from_date = job.from_date.isoformat() if hasattr(job.from_date, 'isoformat') else job.from_date
             to_date = job.to_date.isoformat() if hasattr(job.to_date, 'isoformat') else job.to_date
-            filters[filter_field] = ["between", [from_date, to_date]]
+            
+            # Special handling for transaction/posting dates which are Date fields
+            if job.date_filter_type in ["Transaction Date", "Posting Date"]:
+                from_date = from_date.split('T')[0]  # Get only the date part
+                to_date = to_date.split('T')[0]  # Get only the date part
+            
+            filters.append([filter_field, "between", [from_date, to_date]])
+        
+        # Add filter to exclude canceled documents
+        filters.append(["docstatus", "<", 2])  # 0=Draft, 1=Submitted, 2=Cancelled
+            
+        # Skip if doctype doesn't have the selected date field
+        if filter_field not in ["creation", "modified"]:
+            meta = producer_site.get("DocType", doctype)
+            if not any(f.get("fieldname") == filter_field for f in meta.fields):
+                frappe.logger().warning(f"Skipping {doctype} as it doesn't have field {filter_field}")
+                processed = json.loads(job.processed_doctypes or "{}")
+                processed[doctype] = {"total": 0, "processed": 0, "skipped": True, 
+                    "reason": f"Document type doesn't have {job.date_filter_type} field"}
+                job.db_set("processed_doctypes", json.dumps(processed))
+                return
             
         # Get total count first
         if doctype == "Purchase Order":
             frappe.logger().info(f"Fetching Purchase Orders with filters: {filters}")
             
         total_count = len(producer_site.get_list(doctype, filters=filters, limit_page_length=0))
+            
         if doctype == "Purchase Order":
             frappe.logger().info(f"Found {total_count} Purchase Orders to migrate")
             

@@ -45,28 +45,38 @@ class EventConsumer(Document):
 			frappe.delete_doc("Event Update Log Consumer", i.name)
 
 	def update_consumer_status(self):
-		consumer_site = get_consumer_site(self.callback_url)
-		event_producer = consumer_site.get_doc("Event Producer", get_url())
-		event_producer = frappe._dict(event_producer)
-		config = event_producer.producer_doctypes
-		event_producer.producer_doctypes = []
-		for entry in config:
-			if entry.get("has_mapping"):
-				ref_doctype = consumer_site.get_value(
-					"Document Type Mapping", "remote_doctype", entry.get("mapping")
-				).get("remote_doctype")
-			else:
-				ref_doctype = entry.get("ref_doctype")
+		try:
+			consumer_site = get_consumer_site(self.callback_url)
+			event_producer = consumer_site.get_doc("Event Producer", get_url())
+			
+			if not event_producer:
+				frappe.throw(_("Event Producer does not exist on the consumer site"))
+				
+			event_producer = frappe._dict(event_producer)
+			config = event_producer.producer_doctypes
+			event_producer.producer_doctypes = []
+			
+			for entry in config:
+				if entry.get("has_mapping"):
+					ref_doctype = consumer_site.get_value(
+						"Document Type Mapping", "remote_doctype", entry.get("mapping")
+					).get("remote_doctype")
+				else:
+					ref_doctype = entry.get("ref_doctype")
 
-			entry["status"] = frappe.db.get_value(
-				"Event Consumer Document Type", {"parent": self.name, "ref_doctype": ref_doctype}, "status"
-			)
+				entry["status"] = frappe.db.get_value(
+					"Event Consumer Document Type", 
+					{"parent": self.name, "ref_doctype": ref_doctype}, 
+					"status"
+				)
 
-		event_producer.producer_doctypes = config
-		# when producer doc is updated it updates the consumer doc
-		# set flag to avoid deadlock
-		event_producer.incoming_change = True
-		consumer_site.update(event_producer)
+			event_producer.producer_doctypes = config
+			event_producer.incoming_change = True
+			consumer_site.update(event_producer)
+			
+		except Exception as e:
+			frappe.log_error("Event Consumer Status Update Error", str(e))
+			frappe.throw(_("Failed to update consumer status. Check error log for details."))
 
 	def get_consumer_status(self):
 		response = requests.get(self.callback_url)

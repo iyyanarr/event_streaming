@@ -75,9 +75,11 @@ frappe.pages['migration-dashboard'].on_page_load = function(wrapper) {
     `;
     document.head.appendChild(style);
 
-    let date_filter_types = [
-        { value: 'Creation Date', label: 'Creation Date' },
-        { value: 'Modified Date', label: 'Modified Date' }
+    const date_filter_types = [
+        { value: 'creation', label: 'Creation Date' },
+        { value: 'modified', label: 'Modified Date' },
+        { value: 'transaction', label: 'Transaction Date' },
+        { value: 'posting', label: 'Posting Date' }
     ];
     
     // Set up date filter type dropdown
@@ -86,9 +88,11 @@ frappe.pages['migration-dashboard'].on_page_load = function(wrapper) {
         label: 'Filter By',
         fieldtype: 'Select',
         options: date_filter_types,
-        default: 'Creation Date',
+        default: 'creation',
         change: () => {
-            // Handle filter type change
+            // Reset preview when filter type changes
+            $('#preview-stats').addClass('hidden');
+            $('#btn-start').prop('disabled', true);
             wrapper.migration_dashboard.preview_migration();
         }
     });
