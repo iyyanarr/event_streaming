@@ -1,0 +1,149 @@
+<div class="migration-dashboard-page">
+    <!-- Producer Selection -->
+    <div class="section-producer">
+        <h5>1. Select Event Producer</h5>
+        <select id="event-producer" class="form-control">
+            <option value="">Select Producer</option>
+        </select>
+    </div>
+
+    <!-- DocType Selection -->
+    <div class="section-doctypes">
+        <h5>2. Select Document Types</h5>
+        <p class="text-muted">Choose the document types to migrate</p>
+        <div class="select-all">
+            <div class="checkbox">
+                <label>
+                    <input type="checkbox" id="select-all-doctypes">
+                    <span>Select All</span>
+                </label>
+            </div>
+        </div>
+        <div id="doctype-list"></div>
+    </div>
+
+    <!-- Date Range -->
+    <div class="section-date-range">
+        <h5>3. Set Date Range</h5>
+        <p class="text-muted">Filter documents by creation or modification date</p>
+        <div class="date-filter-controls">
+            <div class="form-group">
+                <label>Filter Type</label>
+                <select id="date-filter-type" class="form-control">
+                    <option value="creation">Creation Date</option>
+                    <option value="modified">Modified Date</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>From Date</label>
+                <input type="datetime-local" id="from-date" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>To Date</label>
+                <input type="datetime-local" id="to-date" class="form-control">
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview & Start -->
+    <div class="section-actions">
+        <h5>4. Preview & Start Migration</h5>
+        <p class="text-muted">Review the documents to be migrated and start the process</p>
+        <div class="preview-actions">
+            <button id="btn-preview" class="btn btn-default">
+                Preview Migration
+            </button>
+            <button id="btn-start" class="btn btn-primary" disabled>
+                Start Migration
+            </button>
+        </div>
+        
+        <!-- Preview Stats Section -->
+        <div id="preview-stats" class="hidden"></div>
+        
+        <!-- Migration Progress Section -->
+        <div class="progress-section hidden">
+            <h5>Migration Progress</h5>
+            <div class="progress-stats"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+.migration-dashboard-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.section-producer,
+.section-doctypes,
+.section-date-range,
+.section-actions {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.section-producer h5,
+.section-doctypes h5,
+.section-date-range h5,
+.section-actions h5 {
+    margin-bottom: 15px;
+    color: var(--text-color);
+}
+
+.select-all {
+    margin-bottom: 10px;
+    padding: 10px;
+    background: var(--fg-color);
+    border-radius: 4px;
+}
+
+.doctype-item {
+    margin: 5px 0;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.doctype-item:hover {
+    background: var(--fg-color);
+}
+
+.date-filter-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.preview-actions {
+    margin: 20px 0;
+}
+
+.preview-actions button {
+    margin-right: 10px;
+}
+
+#preview-stats:not(.hidden) {
+    margin-top: 20px;
+    padding: 15px;
+    background: var(--fg-color);
+    border-radius: 6px;
+}
+
+.progress-section:not(.hidden) {
+    margin-top: 30px;
+    padding: 15px;
+    background: var(--fg-color);
+    border-radius: 6px;
+}
+
+.text-muted {
+    color: var(--text-muted);
+    font-size: 0.9em;
+    margin-bottom: 10px;
+}
+</style>
