@@ -1,0 +1,5 @@
+[pre_model_sync]
+
+[post_model_sync]
+event_streaming.patches.v1_1.add_processed_docs_field
+event_streaming.patches.v1_1.add_event_migration_job
