@@ -180,7 +180,7 @@ class DocumentTypeMapping(Document):
 
 	def field_maps_to_warehouse(self, field_name):
 		"""Check if field should use warehouse mapping"""
-		return field_name in ['warehouse', 's_warehouse', 't_warehouse', 'source_warehouse', 'target_warehouse']
+		return field_name in ['warehouse', 's_warehouse', 't_warehouse', 'source_warehouse', 'target_warehouse', 'set_warehouse']
 
 	def field_maps_to_account(self, field_name):
 		"""Check if field should use account mapping"""
