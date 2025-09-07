@@ -526,8 +526,9 @@ def migrate_single_document(producer, producer_site, doctype, doc):
                 # Set docstatus to draft
                 clean_doc['docstatus'] = 0
                 
-                # Clear workflow/status fields
-                for field in ('status', 'workflow_state', 'cancelled'):
+                # Don't clear status field for Purchase Orders as it's mandatory for submission
+                # Clear only workflow/state fields that could cause conflicts
+                for field in ('workflow_state', 'cancelled'):
                     if field in clean_doc:
                         clean_doc.pop(field, None)
                 
@@ -607,10 +608,14 @@ def sanitize_doc_for_insert(doc):
             return doc
             
     cleaned = dict(doc)
-    # Remove top-level fields that could cause issues
-    for field in ('docstatus', 'status', 'workflow_state', 'cancelled', 
+    # Remove top-level fields that could cause issues, but preserve status for submission
+    for field in ('docstatus', 'workflow_state', 'cancelled', 
                  'amended_from', 'amendment_date', 'amended_by', 'is_return'):
         cleaned.pop(field, None)
+    
+    # Set appropriate status for Purchase Orders if not present
+    if cleaned.get('doctype') == 'Purchase Order' and not cleaned.get('status'):
+        cleaned['status'] = 'Draft'
         
     # Clean child tables
     for key, value in list(cleaned.items()):
@@ -619,6 +624,7 @@ def sanitize_doc_for_insert(doc):
             for row in value:
                 if isinstance(row, dict):
                     row = dict(row)
+                    # For child tables, we can remove status as it's not typically mandatory
                     for field in ('docstatus', 'status', 'workflow_state', 'cancelled',
                                 'amended_from', 'amendment_date', 'amended_by', 'is_return'):
                         row.pop(field, None)
@@ -636,7 +642,7 @@ def insert_child_table_records(parent_doctype, parent_name, doc_data):
         meta = frappe.get_meta(parent_doctype)
         
         for field in meta.get("fields"):
-            if field.fieldtype == "Table" and field.fieldname in doc_data:
+            if (field.fieldtype == "Table" and field.fieldname in doc_data):
                 child_records = doc_data.get(field.fieldname, [])
                 
                 if child_records and isinstance(child_records, list):
