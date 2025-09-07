@@ -638,3 +638,57 @@ def get_migration_job_progress(job_name):
         frappe.log_error(message=frappe.get_traceback(),
             title="Get migration job progress failed")
         raise
+
+@frappe.whitelist()
+def delete_draft_purchase_orders():
+    """Delete all draft Purchase Orders from the current site"""
+    try:
+        # Get all draft Purchase Orders (docstatus = 0)
+        draft_pos = frappe.get_all("Purchase Order", 
+            filters={"docstatus": 0},
+            fields=["name"]
+        )
+        
+        deleted_count = 0
+        errors = []
+        
+        for po in draft_pos:
+            try:
+                # Get the document and delete it
+                doc = frappe.get_doc("Purchase Order", po.name)
+                doc.flags.ignore_permissions = True
+                doc.delete()
+                deleted_count += 1
+                
+            except Exception as e:
+                errors.append(f"Failed to delete {po.name}: {str(e)}")
+                frappe.logger().error(f"Error deleting Purchase Order {po.name}: {str(e)}")
+                continue
+        
+        # Commit the deletions
+        frappe.db.commit()
+        
+        # Prepare response
+        response = {
+            "status": "success",
+            "deleted_count": deleted_count,
+            "total_found": len(draft_pos)
+        }
+        
+        if errors:
+            response["errors"] = errors
+            response["message"] = f"Deleted {deleted_count} out of {len(draft_pos)} draft Purchase Orders. Some deletions failed."
+        else:
+            response["message"] = f"Successfully deleted {deleted_count} draft Purchase Orders"
+        
+        frappe.logger().info(f"Deleted {deleted_count} draft Purchase Orders out of {len(draft_pos)} found")
+        return response
+        
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error(message=frappe.get_traceback(), 
+            title="Delete draft Purchase Orders failed")
+        return {
+            "status": "error",
+            "message": f"Failed to delete draft Purchase Orders: {str(e)}"
+        }

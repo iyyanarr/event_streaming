@@ -170,6 +170,11 @@ class MigrationDashboard {
             $('#preview-stats').addClass('hidden');
             $('#btn-start').prop('disabled', true);
         });
+
+        // Delete Draft Purchase Orders button
+        $('#btn-delete-draft-pos').on('click', () => {
+            this.delete_draft_purchase_orders();
+        });
     }
 
     load_doctypes() {
@@ -456,5 +461,52 @@ class MigrationDashboard {
         $('.status-failed').css('color', 'var(--red-600)');
         $('.status-inprogress').css('color', 'var(--blue-600)');
         $('.status-queued').css('color', 'var(--orange-600)');
+    }
+
+    delete_draft_purchase_orders() {
+        frappe.confirm(
+            __('Are you sure you want to delete all draft Purchase Orders? This action cannot be undone.'),
+            () => {
+                const $progress = $('#utility-progress').removeClass('hidden');
+                const $stats = $('.utility-stats');
+                
+                $stats.html(`
+                    <div class="alert alert-info">
+                        <i class="fa fa-spinner fa-spin"></i> Deleting draft Purchase Orders...
+                    </div>
+                `);
+
+                frappe.call({
+                    method: 'event_streaming.event_streaming.page.migration_dashboard.migration_dashboard.delete_draft_purchase_orders',
+                    callback: (r) => {
+                        if (r.message && r.message.status === 'success') {
+                            $stats.html(`
+                                <div class="alert alert-success">
+                                    <i class="fa fa-check"></i> Successfully deleted ${r.message.deleted_count} draft Purchase Orders
+                                </div>
+                            `);
+                            frappe.show_alert({
+                                message: __('Draft Purchase Orders deleted successfully'),
+                                indicator: 'green'
+                            });
+                        } else {
+                            $stats.html(`
+                                <div class="alert alert-danger">
+                                    <i class="fa fa-times"></i> Error: ${r.message.message || 'Failed to delete draft Purchase Orders'}
+                                </div>
+                            `);
+                            frappe.msgprint(r.message.message || __('Failed to delete draft Purchase Orders'));
+                        }
+                    },
+                    error: (err) => {
+                        $stats.html(`
+                            <div class="alert alert-danger">
+                                <i class="fa fa-times"></i> Error: ${err.message || 'Failed to delete draft Purchase Orders'}
+                            </div>
+                        `);
+                    }
+                });
+            }
+        );
     }
 }
