@@ -489,6 +489,10 @@ def migrate_single_document(producer, producer_site, doctype, doc):
                 frappe.logger().error(f"No mapping found for doctype {doctype}")
                 return
                 
+            # Check if we should use the same name as producer (from Event Producer configuration)
+            use_same_name = frappe.db.get_value("Event Producer Document Type",
+                {"parent": producer.name, "ref_doctype": doctype}, "use_same_name")
+            
             # Apply mapping and get mapped document
             mapped_result = mapping.get_mapping(full_doc, producer_site, "Insert")
             
@@ -509,28 +513,50 @@ def migrate_single_document(producer, producer_site, doctype, doc):
             
             # Create new or update existing
             if not frappe.db.exists(doctype, doc_name):
-                # For new documents, sanitize and insert
+                # For new documents, sanitize and insert with name handling based on configuration
                 clean_doc = sanitize_doc_for_insert(full_doc)
-                doc_to_insert = frappe.get_doc(clean_doc)
-                doc_to_insert.docstatus = 0
+                
+                if use_same_name:
+                    # CRITICAL: Preserve the original document name from producer
+                    clean_doc['name'] = doc_name
+                
+                # Set docstatus to draft
+                clean_doc['docstatus'] = 0
                 
                 # Clear workflow/status fields
                 for field in ('status', 'workflow_state', 'cancelled'):
-                    if hasattr(doc_to_insert, field):
-                        setattr(doc_to_insert, field, None)
-                
-                # Set flags to bypass validations during migration        
-                doc_to_insert.flags.ignore_validate = True
-                doc_to_insert.flags.ignore_mandatory = True
-                doc_to_insert.flags.ignore_links = True
-                doc_to_insert.flags.in_insert = True
-                doc_to_insert.flags.ignore_permissions = True
-                doc_to_insert.flags.ignore_if_duplicate = True
-                doc_to_insert.flags.from_migration = True
+                    if field in clean_doc:
+                        clean_doc.pop(field, None)
                 
                 try:
-                    doc_to_insert.insert(ignore_permissions=True)
+                    # Use frappe.get_doc with name preservation
+                    doc_to_insert = frappe.get_doc(clean_doc)
+                    
+                    # Set flags to bypass validations during migration        
+                    doc_to_insert.flags.ignore_validate = True
+                    doc_to_insert.flags.ignore_mandatory = True
+                    doc_to_insert.flags.ignore_links = True
+                    doc_to_insert.flags.ignore_permissions = True
+                    doc_to_insert.flags.ignore_if_duplicate = True
+                    doc_to_insert.flags.from_migration = True
+                    
+                    if use_same_name:
+                        # Insert parent document with preserved name using db_insert
+                        doc_to_insert.db_insert()
+                        
+                        # Now manually insert child table records
+                        insert_child_table_records(doctype, doc_name, clean_doc)
+                        
+                        frappe.logger().info(f"Successfully inserted {doctype} {doc_name} with preserved name and child tables")
+                    else:
+                        # Store the remote docname in custom fields and let Frappe generate new name
+                        doc_to_insert.remote_docname = doc_name
+                        doc_to_insert.remote_site_name = producer.name
+                        doc_to_insert.insert(ignore_permissions=True)
+                        frappe.logger().info(f"Successfully inserted {doctype} with new name {doc_to_insert.name} (original: {doc_name})")
+                    
                     frappe.db.commit()
+                    
                 except Exception as e:
                     frappe.db.rollback()
                     frappe.logger().error(f"Failed to insert {doctype} {doc_name}: {str(e)}\n{frappe.get_traceback()}")
@@ -595,6 +621,63 @@ def sanitize_doc_for_insert(doc):
             cleaned[key] = new_list
             
     return cleaned
+
+def insert_child_table_records(parent_doctype, parent_name, doc_data):
+    """Insert child table records for a migrated document with preserved names"""
+    try:
+        # Get the parent meta to find child table fields
+        meta = frappe.get_meta(parent_doctype)
+        
+        for field in meta.get("fields"):
+            if field.fieldtype == "Table" and field.fieldname in doc_data:
+                child_records = doc_data.get(field.fieldname, [])
+                
+                if child_records and isinstance(child_records, list):
+                    for idx, child_record in enumerate(child_records, 1):
+                        if isinstance(child_record, dict):
+                            child_record = dict(child_record)
+                            
+                            # Set essential parent-child relationship fields
+                            child_record.update({
+                                'name': child_record.get('name') or frappe.generate_hash(length=10),
+                                'parent': parent_name,
+                                'parenttype': parent_doctype,
+                                'parentfield': field.fieldname,
+                                'idx': idx,
+                                'docstatus': 0
+                            })
+                            
+                            # Remove problematic fields
+                            for problematic_field in ('status', 'workflow_state', 'cancelled', 
+                                                    'amended_from', 'amendment_date', 'amended_by', 'is_return'):
+                                child_record.pop(problematic_field, None)
+                            
+                            # Create and insert child document
+                            try:
+                                child_doc = frappe.get_doc({
+                                    'doctype': field.options,
+                                    **child_record
+                                })
+                                
+                                # Set flags for child document
+                                child_doc.flags.ignore_validate = True
+                                child_doc.flags.ignore_mandatory = True
+                                child_doc.flags.ignore_links = True
+                                child_doc.flags.ignore_permissions = True
+                                child_doc.flags.from_migration = True
+                                
+                                # Use db_insert to preserve name and bypass validations
+                                child_doc.db_insert()
+                                
+                                frappe.logger().debug(f"Inserted child record {child_record.get('name')} for {parent_doctype} {parent_name}")
+                                
+                            except Exception as e:
+                                frappe.logger().error(f"Error inserting child record for {parent_doctype} {parent_name}, table {field.fieldname}: {str(e)}")
+                                # Log the child record data for debugging
+                                frappe.logger().error(f"Child record data: {child_record}")
+                                
+    except Exception as e:
+        frappe.logger().error(f"Error inserting child table records for {parent_doctype} {parent_name}: {str(e)}")
 
 def get_doctype_mapping(producer, doctype):
     """Get mapping configuration for doctype if exists"""
