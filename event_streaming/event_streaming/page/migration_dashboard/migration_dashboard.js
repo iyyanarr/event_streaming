@@ -175,6 +175,16 @@ class MigrationDashboard {
         $('#btn-delete-draft-pos').on('click', () => {
             this.delete_draft_purchase_orders();
         });
+
+        // Submit Draft Purchase Orders button
+        $('#btn-submit-draft-pos').on('click', () => {
+            this.submit_draft_purchase_orders();
+        });
+
+        // Clear Document Locks button
+        $('#btn-clear-locks').on('click', () => {
+            this.clear_document_locks();
+        });
     }
 
     load_doctypes() {
@@ -502,6 +512,104 @@ class MigrationDashboard {
                         $stats.html(`
                             <div class="alert alert-danger">
                                 <i class="fa fa-times"></i> Error: ${err.message || 'Failed to delete draft Purchase Orders'}
+                            </div>
+                        `);
+                    }
+                });
+            }
+        );
+    }
+
+    submit_draft_purchase_orders() {
+        frappe.confirm(
+            __('Are you sure you want to submit all draft Purchase Orders? This action cannot be undone.'),
+            () => {
+                const $progress = $('#utility-progress').removeClass('hidden');
+                const $stats = $('.utility-stats');
+                
+                $stats.html(`
+                    <div class="alert alert-info">
+                        <i class="fa fa-spinner fa-spin"></i> Submitting draft Purchase Orders...
+                    </div>
+                `);
+
+                frappe.call({
+                    method: 'event_streaming.event_streaming.page.migration_dashboard.migration_dashboard.submit_draft_purchase_orders',
+                    callback: (r) => {
+                        if (r.message && r.message.status === 'success') {
+                            $stats.html(`
+                                <div class="alert alert-success">
+                                    <i class="fa fa-check"></i> Successfully submitted ${r.message.submitted_count} draft Purchase Orders
+                                    ${r.message.errors && r.message.errors.length > 0 ? 
+                                        `<br><small class="text-warning">Note: ${r.message.errors.length} submissions failed</small>` 
+                                        : ''
+                                    }
+                                </div>
+                            `);
+                            frappe.show_alert({
+                                message: __('Draft Purchase Orders submitted successfully'),
+                                indicator: 'green'
+                            });
+                        } else {
+                            $stats.html(`
+                                <div class="alert alert-danger">
+                                    <i class="fa fa-times"></i> Error: ${r.message.message || 'Failed to submit draft Purchase Orders'}
+                                </div>
+                            `);
+                            frappe.msgprint(r.message.message || __('Failed to submit draft Purchase Orders'));
+                        }
+                    },
+                    error: (err) => {
+                        $stats.html(`
+                            <div class="alert alert-danger">
+                                <i class="fa fa-times"></i> Error: ${err.message || 'Failed to submit draft Purchase Orders'}
+                            </div>
+                        `);
+                    }
+                });
+            }
+        );
+    }
+
+    clear_document_locks() {
+        frappe.confirm(
+            __('Are you sure you want to clear all document locks? This will remove any existing locks that may be preventing document operations.'),
+            () => {
+                const $progress = $('#utility-progress').removeClass('hidden');
+                const $stats = $('.utility-stats');
+                
+                $stats.html(`
+                    <div class="alert alert-info">
+                        <i class="fa fa-spinner fa-spin"></i> Clearing document locks...
+                    </div>
+                `);
+
+                frappe.call({
+                    method: 'event_streaming.event_streaming.page.migration_dashboard.migration_dashboard.clear_all_document_locks',
+                    callback: (r) => {
+                        if (r.message && r.message.status === 'success') {
+                            $stats.html(`
+                                <div class="alert alert-success">
+                                    <i class="fa fa-check"></i> Successfully cleared ${r.message.cleared_count} document locks
+                                </div>
+                            `);
+                            frappe.show_alert({
+                                message: __('Document locks cleared successfully'),
+                                indicator: 'green'
+                            });
+                        } else {
+                            $stats.html(`
+                                <div class="alert alert-danger">
+                                    <i class="fa fa-times"></i> Error: ${r.message.message || 'Failed to clear document locks'}
+                                </div>
+                            `);
+                            frappe.msgprint(r.message.message || __('Failed to clear document locks'));
+                        }
+                    },
+                    error: (err) => {
+                        $stats.html(`
+                            <div class="alert alert-danger">
+                                <i class="fa fa-times"></i> Error: ${err.message || 'Failed to clear document locks'}
                             </div>
                         `);
                     }

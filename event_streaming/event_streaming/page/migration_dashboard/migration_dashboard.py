@@ -473,12 +473,15 @@ def migrate_single_document(producer, producer_site, doctype, doc):
     producer.db_set("incoming_change", 1)
     frappe.flags.in_migrate = True
     
+    # Get document name safely
+    doc_name = doc.get("name") if isinstance(doc, dict) else getattr(doc, "name", None)
+    if not doc_name:
+        raise ValueError(f"Document name missing for doctype {doctype}: {doc}")
+    
+    # Acquire document lock to prevent concurrent operations
+    lock_acquired = acquire_doc_lock(doctype, doc_name)
+    
     try:
-        # Get document name safely
-        doc_name = doc.get("name") if isinstance(doc, dict) else getattr(doc, "name", None)
-        if not doc_name:
-            raise ValueError(f"Document name missing for doctype {doctype}: {doc}")
-            
         try:
             # Get full document from producer
             full_doc = producer_site.get_doc(doctype, doc_name)
@@ -588,6 +591,10 @@ def migrate_single_document(producer, producer_site, doctype, doc):
             raise
             
     finally:
+        # Always release the document lock when done
+        if lock_acquired:
+            release_doc_lock(doctype, doc_name)
+        
         producer.db_set("incoming_change", 0)
         frappe.flags.in_migrate = False
 
@@ -737,6 +744,9 @@ def delete_draft_purchase_orders():
         
         for po in draft_pos:
             try:
+                # Release any existing document lock before deletion
+                release_doc_lock("Purchase Order", po.name)
+                
                 # Get the document and delete it
                 doc = frappe.get_doc("Purchase Order", po.name)
                 doc.flags.ignore_permissions = True
@@ -774,4 +784,95 @@ def delete_draft_purchase_orders():
         return {
             "status": "error",
             "message": f"Failed to delete draft Purchase Orders: {str(e)}"
+        }
+
+@frappe.whitelist()
+def clear_all_document_locks():
+    """Clear all document locks from the cache"""
+    try:
+        # Get all cache keys that start with 'doc_lock:'
+        cache_keys = frappe.cache().get_keys("doc_lock:*")
+        cleared_count = 0
+        
+        for key in cache_keys:
+            frappe.cache().delete_value(key)
+            cleared_count += 1
+        
+        frappe.logger().info(f"Cleared {cleared_count} document locks from cache")
+        
+        return {
+            "status": "success",
+            "cleared_count": cleared_count,
+            "message": f"Successfully cleared {cleared_count} document locks"
+        }
+        
+    except Exception as e:
+        frappe.log_error(message=frappe.get_traceback(), 
+            title="Clear document locks failed")
+        return {
+            "status": "error",
+            "message": f"Failed to clear document locks: {str(e)}"
+        }
+
+@frappe.whitelist()
+def submit_draft_purchase_orders():
+    """Submit all draft Purchase Orders from the current site"""
+    try:
+        # Get all draft Purchase Orders (docstatus = 0)
+        draft_pos = frappe.get_all("Purchase Order", 
+            filters={"docstatus": 0},
+            fields=["name"]
+        )
+        
+        submitted_count = 0
+        errors = []
+        
+        for po in draft_pos:
+            try:
+                # Get the document and submit it
+                doc = frappe.get_doc("Purchase Order", po.name)
+                
+                # Set flags to bypass some validations if needed
+                doc.flags.ignore_permissions = True
+                doc.flags.ignore_validate = False  # Keep validation for submission
+                doc.flags.ignore_mandatory = False  # Keep mandatory field checks
+                
+                # Submit the document (changes docstatus from 0 to 1)
+                doc.submit()
+                submitted_count += 1
+                
+                frappe.logger().info(f"Successfully submitted Purchase Order {po.name}")
+                
+            except Exception as e:
+                error_msg = f"Failed to submit {po.name}: {str(e)}"
+                errors.append(error_msg)
+                frappe.logger().error(f"Error submitting Purchase Order {po.name}: {str(e)}")
+                continue
+        
+        # Commit the submissions
+        frappe.db.commit()
+        
+        # Prepare response
+        response = {
+            "status": "success",
+            "submitted_count": submitted_count,
+            "total_found": len(draft_pos)
+        }
+        
+        if errors:
+            response["errors"] = errors
+            response["message"] = f"Submitted {submitted_count} out of {len(draft_pos)} draft Purchase Orders. {len(errors)} submissions failed."
+        else:
+            response["message"] = f"Successfully submitted {submitted_count} draft Purchase Orders"
+        
+        frappe.logger().info(f"Submitted {submitted_count} draft Purchase Orders out of {len(draft_pos)} found")
+        return response
+        
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error(message=frappe.get_traceback(), 
+            title="Submit draft Purchase Orders failed")
+        return {
+            "status": "error",
+            "message": f"Failed to submit draft Purchase Orders: {str(e)}"
         }
