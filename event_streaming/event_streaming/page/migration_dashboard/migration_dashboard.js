@@ -120,6 +120,10 @@ class MigrationDashboard {
         this.page.add_menu_item(__('View Migration Jobs'), () => {
             frappe.set_route('List', 'Event Migration Job');
         });
+
+        this.page.add_menu_item(__('Document Manager'), () => {
+            frappe.set_route('page', 'document-manager');
+        });
     }
 
     load_producers() {

@@ -1,0 +1,362 @@
+<div class="document-manager-page">
+    <!-- Filters Section -->
+    <div class="section-filters">
+        <h4>Document Filters</h4>
+        <div class="filter-controls">
+            <div class="row">
+                <div class="col-md-3">
+                    <label>Document Type</label>
+                    <select id="doctype-filter" class="form-control">
+                        <option value="">All Document Types</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>Status</label>
+                    <select id="status-filter" class="form-control" disabled>
+                        <option value="">All Status</option>
+                        <option value="success">Success</option>
+                        <option value="failed">Failed</option>
+                        <option value="draft">Draft</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>Migration Status</label>
+                    <select id="migration-status-filter" class="form-control" disabled>
+                        <option value="">All</option>
+                        <option value="migrated">Migrated</option>
+                        <option value="failed_migration">Failed Migration</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>Actions</label>
+                    <div class="btn-group btn-block">
+                        <button id="btn-refresh" class="btn btn-default">
+                            <i class="fa fa-refresh"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Section -->
+    <div class="section-summary">
+        <h4>Migration Summary</h4>
+        <div class="summary-cards">
+            <div class="row">
+                <div class="col-md-2">
+                    <div class="summary-card success">
+                        <div class="card-icon"><i class="fa fa-check-circle"></i></div>
+                        <div class="card-content">
+                            <h3 id="success-count">0</h3>
+                            <p>Successful</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="summary-card failed">
+                        <div class="card-icon"><i class="fa fa-times-circle"></i></div>
+                        <div class="card-content">
+                            <h3 id="failed-count">0</h3>
+                            <p>Failed</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="summary-card draft">
+                        <div class="card-icon"><i class="fa fa-file-o"></i></div>
+                        <div class="card-content">
+                            <h3 id="draft-count">0</h3>
+                            <p>Draft</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="summary-card submitted">
+                        <div class="card-icon"><i class="fa fa-check"></i></div>
+                        <div class="card-content">
+                            <h3 id="submitted-count">0</h3>
+                            <p>Submitted</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="summary-card total">
+                        <div class="card-icon"><i class="fa fa-files-o"></i></div>
+                        <div class="card-content">
+                            <h3 id="total-count">0</h3>
+                            <p>Total</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="summary-card mapping-errors">
+                        <div class="card-icon"><i class="fa fa-exclamation-triangle"></i></div>
+                        <div class="card-content">
+                            <h3 id="mapping-errors-count">0</h3>
+                            <p>Mapping Errors</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Actions Section -->
+    <div class="section-actions">
+        <h4>Bulk Actions</h4>
+        <div class="action-buttons">
+            <button id="btn-submit-selected" class="btn btn-success" disabled>
+                <i class="fa fa-check"></i> Submit Selected
+            </button>
+            <button id="btn-delete-selected" class="btn btn-danger" disabled>
+                <i class="fa fa-trash"></i> Delete Selected
+            </button>
+            <button id="btn-analyze-failures" class="btn btn-warning">
+                <i class="fa fa-search"></i> Analyze Failures
+            </button>
+            <button id="btn-export-report" class="btn btn-info">
+                <i class="fa fa-download"></i> Export Report
+            </button>
+        </div>
+    </div>
+
+    <!-- Document List Section -->
+    <div class="section-documents">
+        <h4>Documents</h4>
+        <div class="document-controls">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="checkbox">
+                        <label>
+                            <input type="checkbox" id="select-all-docs">
+                            Select All
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6 text-right">
+                    <span id="selection-info" class="text-muted">0 documents selected</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table id="documents-table" class="table table-striped table-bordered">
+                <thead>
+                    <tr>
+                        <th width="30px">
+                            <input type="checkbox" class="select-all-header">
+                        </th>
+                        <th>Document</th>
+                        <th>Document Type</th>
+                        <th>Status</th>
+                        <th>Migration Status</th>
+                        <th>Created</th>
+                        <th>Error Details</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="documents-tbody">
+                    <!-- Documents will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Failure Analysis Modal -->
+    <div id="failure-analysis-modal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Failure Analysis Report</h4>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="failure-analysis-content">
+                        <!-- Analysis content will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="btn-export-analysis">Export Analysis</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Modal -->
+    <div id="progress-modal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Operation Progress</h4>
+                </div>
+                <div class="modal-body">
+                    <div id="progress-content">
+                        <!-- Progress content will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.document-manager-page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.section-filters,
+.section-summary,
+.section-actions,
+.section-documents {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.filter-controls {
+    margin-top: 15px;
+}
+
+.summary-cards {
+    margin-top: 15px;
+}
+
+.summary-card {
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    color: white;
+    margin-bottom: 15px;
+}
+
+.summary-card.success { background: linear-gradient(135deg, #28a745, #20c997); }
+.summary-card.failed { background: linear-gradient(135deg, #dc3545, #e74c3c); }
+.summary-card.draft { background: linear-gradient(135deg, #6c757d, #adb5bd); }
+.summary-card.submitted { background: linear-gradient(135deg, #007bff, #17a2b8); }
+.summary-card.total { background: linear-gradient(135deg, #6f42c1, #e83e8c); }
+.summary-card.mapping-errors { background: linear-gradient(135deg, #fd7e14, #ffc107); }
+
+.summary-card .card-icon {
+    font-size: 2em;
+    margin-bottom: 10px;
+}
+
+.summary-card h3 {
+    margin: 10px 0 5px 0;
+    font-size: 2.5em;
+    font-weight: bold;
+}
+
+.summary-card p {
+    margin: 0;
+    font-size: 0.9em;
+    opacity: 0.9;
+}
+
+.action-buttons {
+    margin-top: 15px;
+}
+
+.action-buttons button {
+    margin-right: 10px;
+    margin-bottom: 10px;
+}
+
+.document-controls {
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+#documents-table {
+    font-size: 0.9em;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+.status-draft { background: #6c757d; color: white; }
+.status-submitted { background: #007bff; color: white; }
+.status-cancelled { background: #dc3545; color: white; }
+
+.migration-status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+.migration-success { background: #28a745; color: white; }
+.migration-failed { background: #dc3545; color: white; }
+.migration-warning { background: #ffc107; color: #212529; }
+
+.error-details {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.error-details:hover {
+    overflow: visible;
+    white-space: normal;
+    background: #f8f9fa;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+.btn-sm {
+    padding: 2px 8px;
+    font-size: 0.8em;
+}
+
+.modal-lg {
+    max-width: 900px;
+}
+
+#failure-analysis-content {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.analysis-section {
+    margin-bottom: 25px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.analysis-section h5 {
+    color: #495057;
+    margin-bottom: 15px;
+}
+
+.error-group {
+    margin-bottom: 15px;
+    padding: 10px;
+    background: white;
+    border-left: 4px solid #dc3545;
+    border-radius: 4px;
+}
+
+.error-count {
+    font-weight: bold;
+    color: #dc3545;
+}
+
+#selection-info {
+    font-size: 0.9em;
+}
+</style>
