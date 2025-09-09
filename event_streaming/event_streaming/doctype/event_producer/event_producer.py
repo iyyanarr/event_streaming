@@ -323,19 +323,20 @@ def set_insert(update, producer_site, event_producer):
 		else:
 			doc_data = dict(doc)
 			
-		# Apply special supplier mapping
-		doc_data = apply_special_supplier_mapping(doc_data)
+		# Apply special supplier mapping - returns only the fields that need updating
+		special_mapping_updates = apply_special_supplier_mapping(doc_data)
 		
-		# Update the doc object with any changes from special mapping
-		# Be more careful about updating to avoid breaking the document object
-		for field, value in doc_data.items():
-			if hasattr(doc, field) and field in doc.meta.get_valid_columns():
-				setattr(doc, field, value)
-			elif field in doc:
-				doc[field] = value
+		# Apply only the specific field updates returned by special mapping
+		if special_mapping_updates:
+			for field_name, field_value in special_mapping_updates.items():
+				if hasattr(doc, field_name):
+					# Directly set the attribute to avoid any document structure corruption
+					setattr(doc, field_name, field_value)
+					frappe.logger().info(f"Applied special mapping update: {field_name} = {field_value}")
 				
 	except Exception as e:
 		frappe.logger().error(f"Error applying special supplier mapping: {str(e)}")
+		frappe.logger().error(f"Traceback: {frappe.get_traceback()}")
 		# Continue without special mapping if it fails
 
 	# Set flags to handle missing dependencies gracefully during live sync
@@ -774,27 +775,28 @@ def apply_special_supplier_mapping(doc_data, original_doc=None):
 		if special_supplier and special_supplier != supplier:
 			frappe.logger().info(f"Special supplier mapping applied: {supplier} -> {special_supplier}")
 			
-			# Create a new dict with only the changed fields to avoid corrupting the original doc_data
-			updated_data = doc_data.copy()
-			updated_data["supplier"] = special_supplier
+				# Return ONLY the fields that need to be updated, not the entire document
+			updates = {
+				"supplier": special_supplier
+			}
 			
 			# Also update supplier_name if present
 			if doc_data.get("supplier_name"):
 				try:
 					new_supplier_name = frappe.db.get_value("Supplier", special_supplier, "supplier_name")
 					if new_supplier_name:
-						updated_data["supplier_name"] = new_supplier_name
+						updates["supplier_name"] = new_supplier_name
 						frappe.logger().info(f"Updated supplier_name: {doc_data.get('supplier_name')} -> {new_supplier_name}")
 				except Exception as e:
 					frappe.logger().warning(f"Could not update supplier_name for {special_supplier}: {str(e)}")
 			
-			return updated_data
+			return updates
 		else:
 			frappe.logger().info(f"No special mapping found for supplier: {supplier}")
 			
-		return doc_data
+		return None  # No updates needed
 		
 	except Exception as e:
 		frappe.logger().error(f"Error in special supplier mapping: {str(e)}")
-		# Return original data if mapping fails
-		return doc_data
+		# Return None if mapping fails
+		return None
