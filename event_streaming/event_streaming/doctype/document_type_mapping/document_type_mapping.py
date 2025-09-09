@@ -589,18 +589,45 @@ def get_mapped_child_table_docs(child_map, table_entries, producer_site):
 	child_map = frappe.get_doc("Document Type Mapping", child_map)
 	mapped_entries = []
 	remote_fields = []
+	
+	# Handle case where table_entries might be strings or mixed types
+	if not table_entries:
+		return mapped_entries
+	
+	# Ensure table_entries is a list
+	if not isinstance(table_entries, list):
+		table_entries = [table_entries]
+	
 	for child_doc in table_entries:
+		# Handle string values - convert to dict or skip
+		if isinstance(child_doc, str):
+			try:
+				# Try to parse as JSON first
+				child_doc = json.loads(child_doc)
+			except (json.JSONDecodeError, ValueError):
+				# If not JSON, skip this entry with warning
+				frappe.logger().warning(f"Skipping non-dict child table entry: {child_doc}")
+				continue
+		
+		# Ensure child_doc is a dictionary
+		if not isinstance(child_doc, dict):
+			frappe.logger().warning(f"Skipping non-dict child table entry of type {type(child_doc)}: {child_doc}")
+			continue
+		
+		# Reset remote_fields for each document
+		doc_remote_fields = []
+		
 		for mapping in child_map.field_mapping:
 			if child_doc.get(mapping.remote_fieldname):
 				child_doc[mapping.local_fieldname] = child_doc[mapping.remote_fieldname]
 				if mapping.local_fieldname != mapping.remote_fieldname:
-					remote_fields.append(mapping.remote_fieldname)
+					doc_remote_fields.append(mapping.remote_fieldname)
 
 		# Apply value mappings to child documents as well
 		child_doc = child_map.apply_value_mappings(child_doc)
 
 		# remove the remote fieldnames
-		for field in remote_fields:
+		for field in doc_remote_fields:
 			child_doc.pop(field, None)
 
 		child_doc["doctype"] = child_map.local_doctype
