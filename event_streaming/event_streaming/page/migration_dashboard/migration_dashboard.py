@@ -657,6 +657,22 @@ def sanitize_doc_for_insert(doc):
         else:
             # Set to None if list is empty
             cleaned['tax_category'] = None
+    
+    # Fix all Link fields that might be lists - convert to string or None
+    link_fields = [
+        'contact_person',  # Supplier Contact
+        'supplier_address', 'shipping_address', 'billing_address', 
+        'buyer', 'cost_center', 'project', 'warehouse', 'set_warehouse', 
+        'currency', 'price_list', 'payment_terms_template', 'terms',
+        'tc_name', 'letter_head', 'print_heading', 'taxes_and_charges'
+    ]
+    
+    for field in link_fields:
+        if field in cleaned and isinstance(cleaned[field], list):
+            if cleaned[field]:
+                cleaned[field] = cleaned[field][0] if cleaned[field][0] else None
+            else:
+                cleaned[field] = None
         
     # Clean child tables
     for key, value in list(cleaned.items()):
