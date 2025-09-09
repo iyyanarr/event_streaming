@@ -773,17 +773,22 @@ def apply_special_supplier_mapping(doc_data, original_doc=None):
 		
 		if special_supplier and special_supplier != supplier:
 			frappe.logger().info(f"Special supplier mapping applied: {supplier} -> {special_supplier}")
-			doc_data["supplier"] = special_supplier
+			
+			# Create a new dict with only the changed fields to avoid corrupting the original doc_data
+			updated_data = doc_data.copy()
+			updated_data["supplier"] = special_supplier
 			
 			# Also update supplier_name if present
 			if doc_data.get("supplier_name"):
 				try:
 					new_supplier_name = frappe.db.get_value("Supplier", special_supplier, "supplier_name")
 					if new_supplier_name:
-						doc_data["supplier_name"] = new_supplier_name
+						updated_data["supplier_name"] = new_supplier_name
 						frappe.logger().info(f"Updated supplier_name: {doc_data.get('supplier_name')} -> {new_supplier_name}")
 				except Exception as e:
 					frappe.logger().warning(f"Could not update supplier_name for {special_supplier}: {str(e)}")
+			
+			return updated_data
 		else:
 			frappe.logger().info(f"No special mapping found for supplier: {supplier}")
 			
