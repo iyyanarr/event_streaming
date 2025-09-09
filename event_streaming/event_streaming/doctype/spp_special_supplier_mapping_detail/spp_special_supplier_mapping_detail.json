@@ -1,0 +1,93 @@
+{
+ "actions": [],
+ "creation": "2025-01-09 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "producer_supplier",
+  "mapping_type",
+  "column_break_3",
+  "is_active",
+  "section_break_5",
+  "consumer_supplier",
+  "address_field",
+  "fallback_supplier",
+  "section_break_9",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "producer_supplier",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Producer Supplier",
+   "reqd": 1
+  },
+  {
+   "fieldname": "mapping_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Mapping Type",
+   "options": "Address Based\nDirect\nCustom",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "section_break_5",
+   "fieldtype": "Section Break"
+  },
+  {
+   "depends_on": "eval:doc.mapping_type == 'Direct' || doc.mapping_type == 'Custom'",
+   "fieldname": "consumer_supplier",
+   "fieldtype": "Link",
+   "label": "Consumer Supplier",
+   "options": "Supplier"
+  },
+  {
+   "depends_on": "eval:doc.mapping_type == 'Address Based'",
+   "fieldname": "address_field",
+   "fieldtype": "Select",
+   "label": "Address Field",
+   "options": "supplier_address\nshipping_address\nbilling_address\ncustomer_address"
+  },
+  {
+   "fieldname": "fallback_supplier",
+   "fieldtype": "Link",
+   "label": "Fallback Supplier",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "section_break_9",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Description"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-09 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Event Streaming",
+ "name": "SPP Special Supplier Mapping Detail",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

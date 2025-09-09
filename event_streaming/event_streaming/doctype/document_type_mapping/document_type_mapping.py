@@ -80,6 +80,9 @@ class DocumentTypeMapping(Document):
 
 	def apply_value_mappings(self, doc):
 		"""Apply value mappings using existing SPP mapping DocTypes"""
+		# Store document context for special mapping logic (like address-based supplier mapping)
+		self.current_doc_data = doc
+		
 		# Get list of fields that are mapped in this Document Type Mapping
 		mapped_fields = [fm.local_fieldname for fm in self.field_mapping]
 		
@@ -97,10 +100,12 @@ class DocumentTypeMapping(Document):
 						# Get child table mapping to know which fields to map
 						child_mapping = self.get_child_table_mapping(table_field)
 						if child_mapping:
+							# Set document context for child mapping too
+							child_mapping.current_doc_data = doc
 							child_mapped_fields = [fm.local_fieldname for fm in child_mapping.field_mapping]
 							for child_field in child_mapped_fields:
 								if row.get(child_field):
-									row[child_field] = self.get_mapped_value(child_field, row[child_field])
+									row[child_field] = child_mapping.get_mapped_value(child_field, row[child_field])
 		
 		return doc
 
@@ -243,8 +248,14 @@ class DocumentTypeMapping(Document):
 			return company
 
 	def get_supplier_mapping(self, supplier):
-		"""Get mapped supplier name from SPP Supplier Mapping child table"""
+		"""Get mapped supplier name from SPP Supplier Mapping child table with special supplier mapping support"""
 		try:
+			# First check if this supplier needs special mapping
+			special_mapping = self.get_special_supplier_mapping(supplier)
+			if special_mapping:
+				return special_mapping
+			
+			# Normal supplier mapping
 			mapping_doc = frappe.db.get_value("SPP Supplier Mapping", 
 				{"is_active": 1}, "name")
 			
@@ -264,6 +275,35 @@ class DocumentTypeMapping(Document):
 		except Exception as e:
 			frappe.logger().error(f"Error in supplier mapping for '{supplier}': {str(e)}")
 			return supplier
+
+	def get_special_supplier_mapping(self, supplier):
+		"""Get special supplier mapping using DocType configuration"""
+		try:
+			# Get active special supplier mapping configuration
+			mapping_doc_name = frappe.db.get_value("SPP Special Supplier Mapping", 
+				{"is_active": 1}, "name")
+			
+			if not mapping_doc_name:
+				return None
+				
+			# Get the mapping document
+			mapping_doc = frappe.get_doc("SPP Special Supplier Mapping", mapping_doc_name)
+			
+			# Get document context for address-based mapping
+			doc_data = getattr(self, 'current_doc_data', {})
+			
+			# Use the mapping document's method to get special mapping
+			special_mapping = mapping_doc.get_special_supplier_mapping(supplier, doc_data)
+			
+			if special_mapping:
+				frappe.logger().info(f"Special supplier mapping applied: {supplier} -> {special_mapping}")
+				return special_mapping
+				
+			return None
+			
+		except Exception as e:
+			frappe.logger().error(f"Error in special supplier mapping for '{supplier}': {str(e)}")
+			return None
 
 	def get_item_mapping(self, item_code):
 		"""Get mapped item code from SPP Item Mapping child table"""
@@ -487,6 +527,28 @@ class DocumentTypeMapping(Document):
 		except Exception as e:
 			frappe.logger().error(f"Error in address mapping for '{address}': {str(e)}")
 			return address
+
+	def get_supplier_from_address(self, address_name):
+		"""Find supplier linked to a specific address"""
+		try:
+			# Get address document
+			if not frappe.db.exists("Address", address_name):
+				frappe.logger().warning(f"Address {address_name} does not exist")
+				return None
+				
+			address_doc = frappe.get_doc("Address", address_name)
+			
+			# Find supplier linked to this address
+			for link in address_doc.links:
+				if link.link_doctype == "Supplier":
+					frappe.logger().info(f"Found supplier {link.link_name} linked to address {address_name}")
+					return link.link_name
+					
+			frappe.logger().warning(f"No supplier found linked to address: {address_name}")
+			return None
+		except Exception as e:
+			frappe.logger().error(f"Error finding supplier for address {address_name}: {str(e)}")
+			return None
 
 	def get_mapped_update(self, update, producer_site):
 		update_diff = frappe._dict(json.loads(update.data))
