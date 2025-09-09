@@ -602,6 +602,16 @@ def migrate_single_document(producer, producer_site, doctype, doc):
                     if (field not in ('name', 'owner', 'creation', 'modified', 'modified_by', 'docstatus', 'parent', 'parenttype', 'parentfield', 'idx') 
                         and hasattr(current_doc, field)
                         and getattr(current_doc, field) != value):
+                        # Handle list values properly for field updates
+                        if isinstance(value, list):
+                            # For child tables, skip field-level updates as they need special handling
+                            if field in [f.fieldname for f in frappe.get_meta(doctype).get_table_fields()]:
+                                continue
+                            # For other list fields like tax_category, convert to string
+                            if value:
+                                value = value[0] if value[0] else None
+                            else:
+                                value = None
                         field_updates[field] = value
                         
                 if field_updates:
@@ -638,6 +648,15 @@ def sanitize_doc_for_insert(doc):
     # Set appropriate status for Purchase Orders if not present
     if cleaned.get('doctype') == 'Purchase Order' and not cleaned.get('status'):
         cleaned['status'] = 'Draft'
+    
+    # Fix Tax Category if it's a list - convert to string or None
+    if 'tax_category' in cleaned and isinstance(cleaned['tax_category'], list):
+        if cleaned['tax_category']:
+            # Take the first item if list is not empty
+            cleaned['tax_category'] = cleaned['tax_category'][0] if cleaned['tax_category'][0] else None
+        else:
+            # Set to None if list is empty
+            cleaned['tax_category'] = None
         
     # Clean child tables
     for key, value in list(cleaned.items()):
@@ -650,6 +669,14 @@ def sanitize_doc_for_insert(doc):
                     for field in ('docstatus', 'status', 'workflow_state', 'cancelled',
                                 'amended_from', 'amendment_date', 'amended_by', 'is_return'):
                         row.pop(field, None)
+                    
+                    # Fix Tax Category in child tables too
+                    if 'tax_category' in row and isinstance(row['tax_category'], list):
+                        if row['tax_category']:
+                            row['tax_category'] = row['tax_category'][0] if row['tax_category'][0] else None
+                        else:
+                            row['tax_category'] = None
+                    
                     new_list.append(row)
                 else:
                     new_list.append(row)
