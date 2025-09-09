@@ -192,7 +192,7 @@ class DocumentTypeMapping(Document):
 
 	def field_maps_to_tax_template(self, field_name):
 		"""Check if field should use tax template mapping"""
-		return field_name in ['taxes_and_charges', 'tax_template']
+		return field_name in ['taxes_and_charges', 'tax_template', 'item_tax_template']
 
 	def field_maps_to_contact(self, field_name):
 		"""Check if field should use contact mapping"""
