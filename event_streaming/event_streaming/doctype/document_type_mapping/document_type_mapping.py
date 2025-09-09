@@ -153,7 +153,20 @@ class DocumentTypeMapping(Document):
 		
 		# Tax Template mapping
 		elif self.field_maps_to_tax_template(field_name):
-			return self.get_tax_template_mapping(field_value)
+			# Determine template type based on field name or document context
+			template_type = None
+			if field_name in ['taxes_and_charges']:
+				# For main document tax template, try to determine type from doctype
+				if hasattr(self, 'local_doctype'):
+					if 'Purchase' in self.local_doctype:
+						template_type = "Purchase Taxes and Charges Template"
+					elif 'Sales' in self.local_doctype:
+						template_type = "Sales Taxes and Charges Template"
+			elif field_name == 'item_tax_template':
+				# Item tax templates are different - they use Item Tax Template doctype
+				return self.get_item_tax_template_mapping(field_value)
+			
+			return self.get_tax_template_mapping(field_value, template_type)
 			
 		# Contact mapping
 		elif self.field_maps_to_contact(field_name):
@@ -193,6 +206,10 @@ class DocumentTypeMapping(Document):
 	def field_maps_to_tax_template(self, field_name):
 		"""Check if field should use tax template mapping"""
 		return field_name in ['taxes_and_charges', 'tax_template', 'item_tax_template']
+
+	def field_maps_to_item_tax_template(self, field_name):
+		"""Check if field should use item tax template mapping (separate from purchase/sales tax templates)"""
+		return field_name in ['item_tax_template']
 
 	def field_maps_to_contact(self, field_name):
 		"""Check if field should use contact mapping"""
@@ -340,29 +357,82 @@ class DocumentTypeMapping(Document):
 			frappe.logger().error(f"Error in cost center mapping for '{cost_center}': {str(e)}")
 			return cost_center
 
-	def get_tax_template_mapping(self, tax_template):
+	def get_tax_template_mapping(self, tax_template, template_type=None):
 		"""Get mapped tax template name from SPP Tax Template Mapping child table"""
 		try:
 			mapping_doc = frappe.db.get_value("SPP Tax Template Mapping", 
 				{"is_active": 1}, "name")
 			
 			if mapping_doc:
+				# Build filters with template type if provided
+				filters = {
+					"parent": mapping_doc, 
+					"producer_tax_template": tax_template,
+					"is_active": 1
+				}
+				
+				# Add template type filter if specified
+				if template_type:
+					filters["template_type"] = template_type
+				
 				mapped_tax_template = frappe.db.get_value("SPP Tax Template Mapping Detail",
-					{"parent": mapping_doc, "producer_tax_template": tax_template}, "consumer_tax_template")
+					filters, "consumer_tax_template")
+				
 				if mapped_tax_template:
-					# Check multiple possible doctypes for tax templates
-					for doctype in ["Purchase Taxes and Charges Template", "Sales Taxes and Charges Template"]:
+					# Check if the mapped template exists in the correct doctype
+					target_doctypes = []
+					if template_type:
+						target_doctypes = [template_type]
+					else:
+						target_doctypes = ["Purchase Taxes and Charges Template", "Sales Taxes and Charges Template"]
+					
+					for doctype in target_doctypes:
 						if frappe.db.exists(doctype, mapped_tax_template):
-							frappe.logger().info(f"Tax Template mapping: {tax_template} -> {mapped_tax_template}")
+							frappe.logger().info(f"Tax Template mapping: {tax_template} -> {mapped_tax_template} ({doctype})")
 							return mapped_tax_template
+					
 					frappe.logger().warning(f"Mapped tax template '{mapped_tax_template}' does not exist for original '{tax_template}'")
 				else:
-					frappe.logger().warning(f"No mapping found for tax template: {tax_template}")
+					filter_info = f" with template_type='{template_type}'" if template_type else ""
+					frappe.logger().warning(f"No mapping found for tax template: {tax_template}{filter_info}")
 			
 			return tax_template
 		except Exception as e:
 			frappe.logger().error(f"Error in tax template mapping for '{tax_template}': {str(e)}")
 			return tax_template
+
+	def get_item_tax_template_mapping(self, item_tax_template):
+		"""Get mapped item tax template name from SPP Tax Template Mapping child table"""
+		try:
+			mapping_doc = frappe.db.get_value("SPP Tax Template Mapping", 
+				{"is_active": 1}, "name")
+			
+			if mapping_doc:
+				# Build filters for item tax template (use Item Tax Template as template_type)
+				filters = {
+					"parent": mapping_doc, 
+					"producer_tax_template": item_tax_template,
+					"is_active": 1,
+					"template_type": "Item Tax Template"  # Specific to Item Tax Template doctype
+				}
+				
+				mapped_item_tax_template = frappe.db.get_value("SPP Tax Template Mapping Detail",
+					filters, "consumer_tax_template")
+				
+				if mapped_item_tax_template:
+					# Check if the mapped template exists in Item Tax Template doctype
+					if frappe.db.exists("Item Tax Template", mapped_item_tax_template):
+						frappe.logger().info(f"Item Tax Template mapping: {item_tax_template} -> {mapped_item_tax_template}")
+						return mapped_item_tax_template
+					else:
+						frappe.logger().warning(f"Mapped item tax template '{mapped_item_tax_template}' does not exist for original '{item_tax_template}'")
+				else:
+					frappe.logger().warning(f"No item tax template mapping found for: {item_tax_template}")
+			
+			return item_tax_template
+		except Exception as e:
+			frappe.logger().error(f"Error in item tax template mapping for '{item_tax_template}': {str(e)}")
+			return item_tax_template
 
 	def get_contact_mapping(self, contact):
 		"""Get mapped contact name from SPP Contact Mapping child table"""

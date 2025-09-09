@@ -35,7 +35,7 @@
    "fieldname": "template_type",
    "fieldtype": "Select",
    "label": "Template Type",
-   "options": "Purchase Taxes and Charges Template\nSales Taxes and Charges Template"
+   "options": "Purchase Taxes and Charges Template\nSales Taxes and Charges Template\nItem Tax Template"
   },
   {
    "default": "1",
