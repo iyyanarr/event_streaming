@@ -417,7 +417,7 @@ def process_doctype_migration(job, producer, producer_site, doctype):
             frappe.logger().info(f"Found {total_count} Purchase Orders to migrate")
             
         processed = json.loads(job.processed_doctypes or "{}")
-        processed[doctype] = {"total": total_count, "processed": 0}
+        processed[doctype] = {"total": total_count, "processed": 0, "failed": 0}
         job.db_set("processed_doctypes", json.dumps(processed))
         
         # Process in batches
@@ -434,26 +434,48 @@ def process_doctype_migration(job, producer, producer_site, doctype):
                 frappe.logger().info(f"Processing {len(docs)} Purchase Orders in current batch")
                 
             for doc in docs:
+                doc_name = doc.get('name', 'Unknown')
                 try:
                     if doctype == "Purchase Order":
-                        frappe.logger().info(f"Processing Purchase Order {doc.get('name')}")
+                        frappe.logger().info(f"Processing Purchase Order {doc_name}")
                         
                     migrate_single_document(producer, producer_site, doctype, doc)
                     
-                    # Update progress
+                    # Update SUCCESS progress
                     processed[doctype]["processed"] += 1
                     job.db_set("processed_doctypes", json.dumps(processed))
                     job.db_set("processed_docs", (job.processed_docs or 0) + 1)
                     
                     if doctype == "Purchase Order":
-                        frappe.logger().info(f"Successfully processed Purchase Order {doc.get('name')}")
+                        frappe.logger().info(f"✅ Successfully processed Purchase Order {doc_name}")
                         
                 except Exception as e:
+                    # Update FAILURE progress - IMPORTANT: Still count as processed
+                    processed[doctype]["failed"] += 1
+                    job.db_set("processed_doctypes", json.dumps(processed))
+                    job.db_set("processed_docs", (job.processed_docs or 0) + 1)
+                    
                     if doctype == "Purchase Order":
-                        frappe.logger().error(f"Failed to process Purchase Order {doc.get('name')}: {str(e)}\n{frappe.get_traceback()}")
+                        frappe.logger().error(f"❌ Failed to process Purchase Order {doc_name}: {str(e)}")
+                        # Log the specific error for debugging
+                        if "Item Tax Template" in str(e):
+                            frappe.logger().error(f"🎯 Item Tax Template mapping issue for {doc_name}")
+                    
+                    # Continue processing other documents instead of stopping
                     continue
                     
             start += BATCH_SIZE
+            
+        # Log final summary
+        final_processed = processed[doctype]["processed"]
+        final_failed = processed[doctype]["failed"]
+        final_total = processed[doctype]["total"]
+        
+        frappe.logger().info(f"📊 Migration Summary for {doctype}:")
+        frappe.logger().info(f"   ✅ Successful: {final_processed}")
+        frappe.logger().info(f"   ❌ Failed: {final_failed}")
+        frappe.logger().info(f"   📊 Total: {final_total}")
+        frappe.logger().info(f"   📈 Success Rate: {(final_processed/final_total*100):.1f}%" if final_total > 0 else "   📈 Success Rate: 0%")
             
     except Exception as e:
         frappe.log_error(message=frappe.get_traceback(), 
@@ -714,7 +736,7 @@ def get_migration_job_progress(job_name):
         
         for doctype_stats in processed.values():
             total_docs += doctype_stats.get("total", 0)
-            if doctype_stats.get("processed", 0) >= doctype_stats.get("total", 0):
+            if (doctype_stats.get("processed", 0) + doctype_stats.get("failed", 0)) >= doctype_stats.get("total", 0):
                 completed_doctypes += 1
                 
         progress = {
