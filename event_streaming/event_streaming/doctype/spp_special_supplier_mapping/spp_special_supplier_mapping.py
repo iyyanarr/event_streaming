@@ -56,38 +56,30 @@ class SPPSpecialSupplierMapping(Document):
 		return None
 
 	def process_address_based_mapping(self, mapping, doc_data):
-		"""Process address-based mapping logic"""
+		"""Process address-based mapping logic - works with consumer site data after Document Type Mapping"""
 		frappe.logger().info(f"Processing address-based mapping for {mapping.producer_supplier}")
 		
 		if not doc_data:
 			frappe.logger().warning(f"No document data provided for address-based mapping: {mapping.producer_supplier}")
 			return mapping.fallback_supplier or mapping.producer_supplier
 
-		# Get address field value from document
-		address_value = doc_data.get(mapping.address_field)
-		frappe.logger().info(f"Address field '{mapping.address_field}' value: {address_value}")
+		# Get consumer address field value from document (already mapped by Document Type Mapping)
+		consumer_address = doc_data.get(mapping.address_field)
+		frappe.logger().info(f"Consumer address field '{mapping.address_field}' value: {consumer_address}")
 		
-		if not address_value:
+		if not consumer_address:
 			frappe.logger().warning(f"No {mapping.address_field} found in document for supplier {mapping.producer_supplier}")
 			return mapping.fallback_supplier or mapping.producer_supplier
 
-			# REAL ADDRESS-BASED MAPPING LOGIC:
-		# 1. Get mapped address using SPP Address Mapping
-		mapped_address = self.get_mapped_address(address_value)
-		frappe.logger().info(f"Mapped address: {address_value} -> {mapped_address}")
-
-		if mapped_address:
-			# 2. Find supplier linked to the mapped address
-			linked_supplier = self.get_supplier_from_mapped_address(mapped_address)
-			frappe.logger().info(f"Supplier linked to mapped address {mapped_address}: {linked_supplier}")
-			
-			if linked_supplier:
-				frappe.logger().info(f"Address-based mapping SUCCESS: {mapping.producer_supplier} -> {linked_supplier} (via address {address_value} -> {mapped_address})")
-				return linked_supplier
-			else:
-				frappe.logger().warning(f"No supplier found linked to mapped address: {mapped_address}")
+		# Find supplier linked to this consumer address directly
+		linked_supplier = self.get_supplier_from_mapped_address(consumer_address)
+		frappe.logger().info(f"Supplier linked to consumer address {consumer_address}: {linked_supplier}")
+		
+		if linked_supplier:
+			frappe.logger().info(f"Address-based mapping SUCCESS: {mapping.producer_supplier} -> {linked_supplier} (via consumer address {consumer_address})")
+			return linked_supplier
 		else:
-			frappe.logger().warning(f"No address mapping found for: {address_value}")
+			frappe.logger().warning(f"No supplier found linked to consumer address: {consumer_address}")
 
 		# Fallback to configured fallback supplier
 		fallback = mapping.fallback_supplier
