@@ -9,7 +9,7 @@ def get_available_doctypes():
     """Get list of doctypes that have migrated documents"""
     # Get doctypes that are commonly migrated
     common_doctypes = ['Purchase Order', 'Sales Order', 'Purchase Invoice', 'Sales Invoice', 
-                      'Supplier', 'Customer', 'Item', 'Delivery Note', 'Purchase Receipt']
+                      'Supplier', 'Customer', 'Item', 'Delivery Note', 'Purchase Receipt','Quality Inspection']
     
     available_doctypes = []
     for doctype in common_doctypes:
