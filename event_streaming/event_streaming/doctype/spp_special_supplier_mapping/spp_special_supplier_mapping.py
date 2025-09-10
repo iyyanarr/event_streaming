@@ -101,19 +101,37 @@ class SPPSpecialSupplierMapping(Document):
 	def get_mapped_address(self, original_address):
 		"""Get the mapped address using SPP Address Mapping"""
 		try:
-			# Check if there's an address mapping
+			# Check if there's an address mapping in the child table
 			address_mapping = frappe.db.get_value(
-				"SPP Address Mapping", 
-				{"producer_address": original_address, "is_active": 1}, 
+				"SPP Address Mapping Detail", 
+				{"producer_address": original_address}, 
 				"consumer_address"
 			)
 			
 			if address_mapping:
-				frappe.logger().info(f"Found SPP address mapping: {original_address} -> {address_mapping}")
-				return address_mapping
-			else:
-				frappe.logger().info(f"No SPP address mapping found for: {original_address}")
-				return None
+				# Verify the parent mapping is active
+				parent_mapping = frappe.db.get_value(
+					"SPP Address Mapping Detail",
+					{"producer_address": original_address},
+					"parent"
+				)
+				
+				if parent_mapping:
+					is_active = frappe.db.get_value(
+						"SPP Address Mapping",
+						{"name": parent_mapping},
+						"is_active"
+					)
+					
+					if is_active:
+						frappe.logger().info(f"Found SPP address mapping: {original_address} -> {address_mapping}")
+						return address_mapping
+					else:
+						frappe.logger().info(f"SPP address mapping is inactive: {parent_mapping}")
+						return None
+				
+			frappe.logger().info(f"No SPP address mapping found for: {original_address}")
+			return None
 				
 		except Exception as e:
 			frappe.logger().error(f"Error getting address mapping for {original_address}: {str(e)}")
@@ -122,35 +140,86 @@ class SPPSpecialSupplierMapping(Document):
 	def get_supplier_from_mapped_address(self, mapped_address):
 		"""Find which supplier is linked to the mapped address"""
 		try:
-			# Look for supplier linked to this address
-			# Check in Address doctype for the address name and get linked supplier
-			address_doc = frappe.db.get_value(
-				"Address", 
-				{"name": mapped_address}, 
-				["name"]
+			frappe.logger().info(f"Looking for supplier linked to address: {mapped_address}")
+			
+			# Method 1: Direct Dynamic Link lookup
+			linked_supplier = frappe.db.get_value(
+				"Dynamic Link",
+				{
+					"parent": mapped_address,
+					"parenttype": "Address", 
+					"link_doctype": "Supplier"
+				},
+				"link_name"
 			)
 			
-			if address_doc:
-				# Get Dynamic Link entries for this address to find linked supplier
-				linked_supplier = frappe.db.get_value(
-					"Dynamic Link",
-					{
-						"parent": mapped_address,
-						"parenttype": "Address", 
-						"link_doctype": "Supplier"
-					},
-					"link_name"
-				)
+			if linked_supplier:
+				frappe.logger().info(f"Found supplier via Dynamic Link: {linked_supplier}")
+				return linked_supplier
+			
+			# Method 2: Search by address title (sometimes addresses are referenced by title)
+			address_title = frappe.db.get_value("Address", mapped_address, "address_title")
+			if address_title:
+				frappe.logger().info(f"Searching for supplier by address title: {address_title}")
+				
+				# Look for Dynamic Links using address title
+				linked_supplier = frappe.db.sql("""
+					SELECT dl.link_name 
+					FROM `tabDynamic Link` dl
+					INNER JOIN `tabAddress` addr ON dl.parent = addr.name
+					WHERE addr.address_title = %s 
+					AND dl.link_doctype = 'Supplier'
+					AND dl.parenttype = 'Address'
+					LIMIT 1
+				""", (address_title,))
 				
 				if linked_supplier:
-					frappe.logger().info(f"Found supplier {linked_supplier} linked to address {mapped_address}")
-					return linked_supplier
-				else:
-					frappe.logger().warning(f"No supplier linked to address: {mapped_address}")
-					return None
-			else:
-				frappe.logger().warning(f"Address document not found: {mapped_address}")
-				return None
+					supplier_name = linked_supplier[0][0]
+					frappe.logger().info(f"Found supplier via address title: {supplier_name}")
+					return supplier_name
+			
+			# Method 3: Partial match search for address content
+			frappe.logger().info(f"Trying partial match for address: {mapped_address}")
+			
+			# Search for addresses that contain parts of the mapped address
+			similar_addresses = frappe.db.sql("""
+				SELECT addr.name, dl.link_name
+				FROM `tabAddress` addr
+				INNER JOIN `tabDynamic Link` dl ON addr.name = dl.parent
+				WHERE (addr.address_title LIKE %s 
+					OR addr.address_line1 LIKE %s 
+					OR addr.name LIKE %s)
+				AND dl.link_doctype = 'Supplier'
+				AND dl.parenttype = 'Address'
+				LIMIT 5
+			""", (f"%{mapped_address}%", f"%{mapped_address}%", f"%{mapped_address}%"))
+			
+			if similar_addresses:
+				frappe.logger().info(f"Found similar addresses: {similar_addresses}")
+				# Return the first match
+				supplier_name = similar_addresses[0][1]
+				frappe.logger().info(f"Using supplier from similar address: {supplier_name}")
+				return supplier_name
+			
+			# Method 4: Check if mapped_address is actually a supplier name
+			if frappe.db.exists("Supplier", mapped_address):
+				frappe.logger().info(f"Mapped address is actually a supplier name: {mapped_address}")
+				return mapped_address
+				
+			# Method 5: Search for supplier by name containing the address
+			supplier_by_name = frappe.db.sql("""
+				SELECT name FROM `tabSupplier` 
+				WHERE supplier_name LIKE %s OR name LIKE %s
+				LIMIT 1
+			""", (f"%{mapped_address}%", f"%{mapped_address}%"))
+			
+			if supplier_by_name:
+				supplier_name = supplier_by_name[0][0]
+				frappe.logger().info(f"Found supplier by name match: {supplier_name}")
+				return supplier_name
+			
+			frappe.logger().warning(f"No supplier found for address: {mapped_address}")
+			return None
 				
 		except Exception as e:
 			frappe.logger().error(f"Error finding supplier for address {mapped_address}: {str(e)}")
@@ -161,3 +230,67 @@ class SPPSpecialSupplierMapping(Document):
 		# For now, treat custom as direct mapping
 		# This can be extended in the future for more complex logic
 		return mapping.consumer_supplier or mapping.fallback_supplier
+
+	@frappe.whitelist()
+	def debug_address_supplier_mapping(self, address_name):
+		"""Debug method to help troubleshoot address-supplier mapping issues"""
+		try:
+			frappe.logger().info(f"=== DEBUG: Address-Supplier Mapping for {address_name} ===")
+			
+			# Check if address exists
+			address_exists = frappe.db.exists("Address", address_name)
+			frappe.logger().info(f"Address exists: {address_exists}")
+			
+			if address_exists:
+				# Get address details
+				address_doc = frappe.get_doc("Address", address_name)
+				frappe.logger().info(f"Address Title: {address_doc.address_title}")
+				frappe.logger().info(f"Address Line 1: {address_doc.address_line1}")
+				
+				# Check Dynamic Links
+				dynamic_links = frappe.get_all("Dynamic Link", 
+					filters={
+						"parent": address_name,
+						"parenttype": "Address"
+					},
+					fields=["link_doctype", "link_name"]
+				)
+				frappe.logger().info(f"Dynamic Links: {dynamic_links}")
+				
+				# Check for supplier links specifically
+				supplier_links = [dl for dl in dynamic_links if dl.link_doctype == "Supplier"]
+				frappe.logger().info(f"Supplier Links: {supplier_links}")
+				
+				# Test the get_supplier_from_mapped_address method
+				found_supplier = self.get_supplier_from_mapped_address(address_name)
+				frappe.logger().info(f"Found Supplier via method: {found_supplier}")
+				
+				return {
+					"address_exists": address_exists,
+					"address_details": {
+						"title": address_doc.address_title,
+						"line1": address_doc.address_line1
+					},
+					"dynamic_links": dynamic_links,
+					"supplier_links": supplier_links,
+					"found_supplier": found_supplier
+				}
+			else:
+				# Try to find similar addresses
+				similar = frappe.db.sql("""
+					SELECT name, address_title, address_line1 
+					FROM `tabAddress` 
+					WHERE address_title LIKE %s OR name LIKE %s
+					LIMIT 10
+				""", (f"%{address_name}%", f"%{address_name}%"), as_dict=True)
+				
+				frappe.logger().info(f"Similar addresses found: {similar}")
+				
+				return {
+					"address_exists": False,
+					"similar_addresses": similar
+				}
+				
+		except Exception as e:
+			frappe.logger().error(f"Debug error: {str(e)}")
+			return {"error": str(e)}
