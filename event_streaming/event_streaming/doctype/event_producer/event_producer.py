@@ -300,6 +300,41 @@ def sync(update, producer_site, event_producer, in_retry=False):
 	frappe.db.commit()
 
 
+def clean_child_tables(doc):
+	"""Remove None values from child tables to prevent 'NoneType' object has no attribute 'is_new' error"""
+	try:
+		if hasattr(doc, 'meta'):
+			meta = doc.meta
+		else:
+			meta = frappe.get_meta(doc.doctype)
+		
+		table_fields = meta.get_table_fields()
+		
+		for df in table_fields:
+			child_table = doc.get(df.fieldname)
+			if child_table:
+				# Filter out None values and empty entries
+				cleaned_table = []
+				for entry in child_table:
+					if entry is not None:
+						# Also check if it's a valid dictionary-like object
+						if isinstance(entry, (dict, frappe.model.document.Document)):
+							cleaned_table.append(entry)
+						else:
+							frappe.logger().warning(f"Skipping invalid child table entry in {df.fieldname}: {type(entry)} - {entry}")
+				
+				# Update the child table with cleaned entries
+				doc.set(df.fieldname, cleaned_table)
+				frappe.logger().info(f"Cleaned child table {df.fieldname}: {len(child_table)} -> {len(cleaned_table)} entries")
+		
+		return doc
+		
+	except Exception as e:
+		frappe.logger().error(f"Error cleaning child tables: {str(e)}")
+		# Return doc as-is if cleaning fails
+		return doc
+
+
 def set_insert(update, producer_site, event_producer):
 	"""Sync insert type update"""
 	if frappe.db.get_value(update.ref_doctype, update.docname):
@@ -338,6 +373,9 @@ def set_insert(update, producer_site, event_producer):
 		frappe.logger().error(f"Error applying special supplier mapping: {str(e)}")
 		frappe.logger().error(f"Traceback: {frappe.get_traceback()}")
 		# Continue without special mapping if it fails
+
+	# CRITICAL FIX: Clean child tables to remove None values before insertion
+	doc = clean_child_tables(doc)
 
 	# Set flags to handle missing dependencies gracefully during live sync
 	# In production with all dependencies, these flags won't interfere with normal validation

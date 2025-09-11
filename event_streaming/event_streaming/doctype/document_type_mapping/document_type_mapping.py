@@ -198,7 +198,7 @@ class DocumentTypeMapping(Document):
 
 	def field_maps_to_warehouse(self, field_name):
 		"""Check if field should use warehouse mapping"""
-		return field_name in ['warehouse', 's_warehouse', 't_warehouse', 'source_warehouse', 'target_warehouse', 'set_warehouse']
+		return field_name in ['warehouse', 's_warehouse', 't_warehouse', 'source_warehouse', 'target_warehouse', 'set_warehouse', 'default_warehouse']
 
 	def field_maps_to_account(self, field_name):
 		"""Check if field should use account mapping"""
@@ -661,6 +661,11 @@ def get_mapped_child_table_docs(child_map, table_entries, producer_site):
 		table_entries = [table_entries]
 	
 	for child_doc in table_entries:
+			# Skip None values immediately
+		if child_doc is None:
+			frappe.logger().warning("Skipping None child table entry")
+			continue
+			
 		# Handle string values - convert to dict or skip
 		if isinstance(child_doc, str):
 			try:
@@ -693,6 +698,14 @@ def get_mapped_child_table_docs(child_map, table_entries, producer_site):
 			child_doc.pop(field, None)
 
 		child_doc["doctype"] = child_map.local_doctype
-		mapped_entries.append(child_doc)
+		
+		# Final safety check - only add non-None, valid documents
+		if child_doc and isinstance(child_doc, dict) and child_doc.get("doctype"):
+			mapped_entries.append(child_doc)
+		else:
+			frappe.logger().warning(f"Skipping invalid mapped child document: {child_doc}")
 
+	# Log the mapping result
+	frappe.logger().info(f"Child table mapping: {len(table_entries)} entries -> {len(mapped_entries)} valid entries")
+	
 	return mapped_entries
