@@ -89,6 +89,113 @@ def update_doc_with_retries(doctype, doc_name, field_updates, retries=MAX_RETRIE
     return False
 
 @frappe.whitelist()
+def get_doctype_meta(doctype):
+    """Get doctype metadata for field filtering"""
+    try:
+        # Get the doctype meta information
+        meta = frappe.get_meta(doctype)
+        
+        # Return field information that's useful for filtering
+        fields = []
+        for field in meta.fields:
+            if field.fieldtype in [
+                'Data', 'Select', 'Link', 'Int', 'Float', 'Currency', 
+                'Date', 'Datetime', 'Check', 'Text', 'Small Text', 
+                'Long Text', 'Time', 'Duration'
+            ] and not field.hidden and not field.read_only:
+                fields.append({
+                    'fieldname': field.fieldname,
+                    'label': field.label or field.fieldname,
+                    'fieldtype': field.fieldtype,
+                    'options': field.options,
+                    'hidden': field.hidden,
+                    'read_only': field.read_only
+                })
+        
+        return {
+            'name': meta.name,
+            'fields': fields
+        }
+        
+    except Exception as e:
+        frappe.log_error(message=frappe.get_traceback(), 
+            title=f"Get doctype meta failed for {doctype}")
+        return {
+            'name': doctype,
+            'fields': []
+        }
+
+def build_custom_filters(custom_filters, filter_mode="AND"):
+    """Build Frappe-compatible filters from custom filter definitions"""
+    if not custom_filters:
+        return []
+    
+    frappe_filters = []
+    
+    for custom_filter in custom_filters:
+        field = custom_filter.get('field')
+        operator = custom_filter.get('operator') 
+        value = custom_filter.get('value')
+        
+        if not field or not operator or not value:
+            continue
+            
+        # Handle different operator types
+        if operator == 'like':
+            frappe_filters.append([field, 'like', f'%{value}%'])
+        elif operator == 'not like':
+            frappe_filters.append([field, 'not like', f'%{value}%'])
+        elif operator == 'in':
+            # Handle comma-separated values
+            if isinstance(value, str):
+                values = [v.strip() for v in value.split(',') if v.strip()]
+                frappe_filters.append([field, 'in', values])
+            else:
+                frappe_filters.append([field, 'in', value])
+        elif operator == 'not in':
+            # Handle comma-separated values
+            if isinstance(value, str):
+                values = [v.strip() for v in value.split(',') if v.strip()]
+                frappe_filters.append([field, 'not in', values])
+            else:
+                frappe_filters.append([field, 'not in', value])
+        elif operator == 'between':
+            # Handle range values
+            if isinstance(value, list) and len(value) == 2:
+                frappe_filters.append([field, 'between', value])
+            elif isinstance(value, str) and ',' in value:
+                range_values = [v.strip() for v in value.split(',')]
+                if len(range_values) == 2:
+                    frappe_filters.append([field, 'between', range_values])
+        elif operator == 'is':
+            # Handle null/not null checks
+            if value.lower() in ['set', 'not null', 'not empty']:
+                frappe_filters.append([field, '!=', ''])
+            elif value.lower() in ['not set', 'null', 'empty']:
+                frappe_filters.append([field, 'in', ['', None]])
+        elif operator == 'is not':
+            # Handle null/not null checks (opposite)
+            if value.lower() in ['set', 'not null', 'not empty']:
+                frappe_filters.append([field, 'in', ['', None]])
+            elif value.lower() in ['not set', 'null', 'empty']:
+                frappe_filters.append([field, '!=', ''])
+        else:
+            # Standard operators (=, !=, >, >=, <, <=)
+            frappe_filters.append([field, operator, value])
+    
+    # For OR logic, we need to structure differently
+    if filter_mode == "OR" and len(frappe_filters) > 1:
+        # Convert to OR structure: [["field1", "=", "value1"], "or", ["field2", "=", "value2"]]
+        or_filters = []
+        for i, filter_condition in enumerate(frappe_filters):
+            or_filters.append(filter_condition)
+            if i < len(frappe_filters) - 1:  # Don't add 'or' after the last filter
+                or_filters.append('or')
+        return [or_filters] if or_filters else []
+    
+    return frappe_filters
+
+@frappe.whitelist()
 def get_producer_data_preview(producer_url, filters):
     """Preview data from producer site based on filters"""
     try:
@@ -121,7 +228,9 @@ def get_producer_data_preview(producer_url, filters):
                 "from": filters.get("from_date"),
                 "to": filters.get("to_date")
             },
-            "estimated_time": "0 minutes"
+            "estimated_time": "0 minutes",
+            "custom_filters": filters.get("custom_filters", []),
+            "filter_mode": filters.get("filter_mode", "AND")
         }
         
         # Map display filter types to database fields
@@ -153,11 +262,20 @@ def get_producer_data_preview(producer_url, filters):
             # Add filter for non-canceled documents
             date_filters.append(["docstatus", "<", 2])
 
+            # Build custom filters
+            custom_filters = build_custom_filters(
+                filters.get("custom_filters", []), 
+                filters.get("filter_mode", "AND")
+            )
+            
+            # Combine date filters and custom filters
+            combined_filters = date_filters + custom_filters
+
             try:
                 # Get count of records matching the filter by getting all records with just the name field
                 records = producer_site.get_list(doctype, 
                     fields=["name"],
-                    filters=date_filters,
+                    filters=combined_filters,
                     limit_page_length=0  # No limit to get all records
                 )
                 total_count = len(records)
@@ -167,9 +285,17 @@ def get_producer_data_preview(producer_url, filters):
             
             # Get sample entries (limited to 5)
             try:
+                sample_fields = ["name", "creation", "modified", "owner", filter_field, "docstatus"]
+                
+                # Add custom filter fields to sample for better preview
+                for custom_filter in filters.get("custom_filters", []):
+                    field_name = custom_filter.get("field")
+                    if field_name and field_name not in sample_fields:
+                        sample_fields.append(field_name)
+                
                 sample_entries = producer_site.get_list(doctype, 
-                    fields=["name", "creation", "modified", "owner", filter_field, "docstatus"],
-                    filters=date_filters,
+                    fields=sample_fields,
+                    filters=combined_filters,
                     limit_page_length=5
                 )
             except Exception as e:
@@ -181,12 +307,14 @@ def get_producer_data_preview(producer_url, filters):
                 "sample_entries": sample_entries,
                 "has_mapping": frappe.db.exists("Document Type Mapping", {
                     "mapping_name": doctype
-                })
+                }),
+                "applied_filters": len(custom_filters)
             }
             stats["total_documents"] += total_count
             
             # Log the filters and results for debugging
             frappe.logger().debug(f"Date filters for {doctype}: {date_filters}")
+            frappe.logger().debug(f"Custom filters for {doctype}: {custom_filters}")
             frappe.logger().debug(f"Total count for {doctype}: {total_count}")
 
         # Estimate time (rough estimate: 2 seconds per document)
@@ -220,6 +348,20 @@ def format_preview_output(stats):
                 <p><strong>From:</strong> {stats["date_range"]["from"]}</p>
                 <p><strong>To:</strong> {stats["date_range"]["to"]}</p>
             </div>
+    """
+    
+    # Add custom filters summary
+    if stats.get("custom_filters"):
+        html += f"""
+            <div class="custom-filters-summary">
+                <p><strong>Custom Filters:</strong> {len(stats["custom_filters"])} active ({stats["filter_mode"]} mode)</p>
+                <ul>
+        """
+        for custom_filter in stats["custom_filters"]:
+            html += f"<li>{custom_filter['field']} {custom_filter['operator']} {custom_filter['value']}</li>"
+        html += "</ul></div>"
+    
+    html += f"""
             <div class="summary">
                 <p><strong>Total Documents:</strong> {stats["total_documents"]}</p>
                 <p><strong>Estimated Time:</strong> {stats["estimated_time"]}</p>
@@ -233,6 +375,7 @@ def format_preview_output(stats):
             <h5>{doctype}</h5>
             <p>Total Records: {data["count"]}</p>
             <p>Has Mapping: {'Yes' if data["has_mapping"] else 'No'}</p>
+            <p>Custom Filters Applied: {data.get("applied_filters", 0)}</p>
         """
         
         if data["sample_entries"]:
@@ -246,6 +389,15 @@ def format_preview_output(stats):
                             <th>Created</th>
                             <th>Modified</th>
                             <th>Owner</th>
+            """
+            
+            # Add headers for custom filter fields
+            sample_entry = data["sample_entries"][0] if data["sample_entries"] else {}
+            for field in sample_entry.keys():
+                if field not in ["name", "creation", "modified", "owner", "docstatus"]:
+                    html += f"<th>{field.replace('_', ' ').title()}</th>"
+            
+            html += """
                         </tr>
                     </thead>
                     <tbody>
@@ -258,8 +410,14 @@ def format_preview_output(stats):
                     <td>{entry.get("creation")}</td>
                     <td>{entry.get("modified")}</td>
                     <td>{entry.get("owner")}</td>
-                </tr>
                 """
+                
+                # Add data for custom filter fields
+                for field in entry.keys():
+                    if field not in ["name", "creation", "modified", "owner", "docstatus"]:
+                        html += f"<td>{entry.get(field, '')}</td>"
+                
+                html += "</tr>"
                 
             html += """
                     </tbody>
@@ -371,6 +529,17 @@ def process_migration_job(job_args):
 def process_doctype_migration(job, producer, producer_site, doctype):
     """Process migration for a single doctype by pulling from producer site"""
     try:
+        # Parse custom filters from job configuration
+        config = json.loads(job.selected_doctypes) if isinstance(job.selected_doctypes, str) else job.selected_doctypes
+        if isinstance(config, list):
+            # Old format - just doctypes list
+            custom_filters = []
+            filter_mode = "AND"
+        else:
+            # New format - includes custom filters
+            custom_filters = config.get("custom_filters", [])
+            filter_mode = config.get("filter_mode", "AND")
+        
         # Build filters
         filter_field = {
             "Creation Date": "creation",
@@ -394,6 +563,10 @@ def process_doctype_migration(job, producer, producer_site, doctype):
         
         # Add filter to exclude canceled documents
         filters.append(["docstatus", "<", 2])  # 0=Draft, 1=Submitted, 2=Cancelled
+        
+        # Add custom filters
+        custom_filter_conditions = build_custom_filters(custom_filters, filter_mode)
+        filters.extend(custom_filter_conditions)
             
         # Skip if doctype doesn't have the selected date field
         if filter_field not in ["creation", "modified"]:

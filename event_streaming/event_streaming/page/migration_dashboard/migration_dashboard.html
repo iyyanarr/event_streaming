@@ -47,9 +47,43 @@
         </div>
     </div>
 
+    <!-- Advanced Filters Section -->
+    <div class="section-advanced-filters">
+        <h5>4. Advanced Filters</h5>
+        <p class="text-muted">Add custom field filters for precise document selection</p>
+        
+        <div class="filter-builder">
+            <div class="filter-controls">
+                <button id="btn-add-filter" class="btn btn-default btn-sm">
+                    <i class="fa fa-plus"></i> Add Filter
+                </button>
+                <button id="btn-clear-filters" class="btn btn-default btn-sm">
+                    <i class="fa fa-trash"></i> Clear All Filters
+                </button>
+                <div class="filter-mode-selector">
+                    <label>
+                        <input type="radio" name="filter-mode" value="AND" checked> AND (All conditions must match)
+                    </label>
+                    <label>
+                        <input type="radio" name="filter-mode" value="OR"> OR (Any condition can match)
+                    </label>
+                </div>
+            </div>
+            
+            <div id="custom-filters-container" class="custom-filters">
+                <!-- Dynamic filters will be added here -->
+            </div>
+            
+            <div class="filter-summary hidden" id="filter-summary">
+                <h6>Active Filters:</h6>
+                <div class="filter-tags"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Preview & Start -->
     <div class="section-actions">
-        <h5>4. Preview & Start Migration</h5>
+        <h5>5. Preview & Start Migration</h5>
         <p class="text-muted">Review the documents to be migrated and start the process</p>
         <div class="preview-actions">
             <button id="btn-preview" class="btn btn-default">
@@ -72,7 +106,7 @@
 
     <!-- Utility Actions -->
     <div class="section-utilities">
-        <h5>5. Utility Actions</h5>
+        <h5>6. Utility Actions</h5>
         <p class="text-muted">Additional operations for data management</p>
         <div class="utility-actions">
             <button id="btn-delete-draft-pos" class="btn btn-warning">
@@ -104,6 +138,7 @@
 .section-producer,
 .section-doctypes,
 .section-date-range,
+.section-advanced-filters,
 .section-actions {
     margin-bottom: 30px;
     padding: 20px;
@@ -115,6 +150,7 @@
 .section-producer h5,
 .section-doctypes h5,
 .section-date-range h5,
+.section-advanced-filters h5,
 .section-actions h5 {
     margin-bottom: 15px;
     color: var(--text-color);
@@ -142,6 +178,118 @@
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 15px;
     margin-top: 15px;
+}
+
+/* Advanced Filters Styling */
+.filter-builder {
+    margin-top: 15px;
+}
+
+.filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filter-mode-selector {
+    display: flex;
+    gap: 15px;
+}
+
+.filter-mode-selector label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: normal;
+    margin: 0;
+}
+
+.custom-filters {
+    min-height: 50px;
+    border: 2px dashed #e0e6ed;
+    border-radius: 6px;
+    padding: 15px;
+    background: #fafbfc;
+}
+
+.custom-filters.has-filters {
+    border-style: solid;
+    border-color: #d1d8dd;
+    background: white;
+}
+
+.filter-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: white;
+    border: 1px solid #d1d8dd;
+    border-radius: 4px;
+}
+
+.filter-row:last-child {
+    margin-bottom: 0;
+}
+
+.filter-field {
+    flex: 1;
+    min-width: 150px;
+}
+
+.filter-operator {
+    flex: 0 0 120px;
+}
+
+.filter-value {
+    flex: 1;
+    min-width: 150px;
+}
+
+.filter-remove {
+    flex: 0 0 30px;
+}
+
+.filter-summary {
+    margin-top: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.filter-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 10px;
+}
+
+.filter-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    background: #e3f2fd;
+    border: 1px solid #bbdefb;
+    border-radius: 12px;
+    font-size: 0.85em;
+    color: #1565c0;
+}
+
+.filter-tag .remove-tag {
+    cursor: pointer;
+    color: #f44336;
+    font-weight: bold;
+}
+
+.empty-filters-message {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    padding: 20px;
 }
 
 .preview-actions {
