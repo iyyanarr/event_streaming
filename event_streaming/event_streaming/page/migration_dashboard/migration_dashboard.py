@@ -464,7 +464,7 @@ def start_bulk_migration(migration_config):
             "date_filter_type": config.get("date_filter_type"),
             "from_date": config.get("from_date"),
             "to_date": config.get("to_date"),
-            "selected_doctypes": json.dumps(config["doctypes"]),
+            "selected_doctypes": json.dumps(config),
             "total_docs": 0,
             "processed_docs": 0,
             "processed_doctypes": "{}"
