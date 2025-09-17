@@ -194,11 +194,11 @@ class DocumentTypeMapping(Document):
 
 	def field_maps_to_item(self, field_name):
 		"""Check if field should use item mapping"""
-		return field_name in ['item_code', 'item', 'production_item']
+		return field_name in ['item_code', 'item', 'production_item', 'item_name']
 
 	def field_maps_to_warehouse(self, field_name):
 		"""Check if field should use warehouse mapping"""
-		return field_name in ['warehouse', 's_warehouse', 't_warehouse', 'source_warehouse', 'target_warehouse', 'set_warehouse', 'default_warehouse']
+		return field_name in ['warehouse', 's_warehouse', 't_warehouse', 'source_warehouse', 'target_warehouse', 'set_warehouse', 'default_warehouse', 'supplier_warehouse','fg_warehouse', 'wip_warehouse', 'scrap_warehouse']
 
 	def field_maps_to_account(self, field_name):
 		"""Check if field should use account mapping"""
