@@ -198,7 +198,7 @@ class DocumentTypeMapping(Document):
 
 	def field_maps_to_warehouse(self, field_name):
 		"""Check if field should use warehouse mapping"""
-		return field_name in ['warehouse', 's_warehouse', 't_warehouse', 'source_warehouse', 'target_warehouse', 'set_warehouse', 'default_warehouse', 'supplier_warehouse','fg_warehouse', 'wip_warehouse', 'scrap_warehouse']
+		return field_name in ['warehouse', 's_warehouse', 't_warehouse', 'source_warehouse', 'target_warehouse', 'set_warehouse', 'default_warehouse', 'supplier_warehouse','fg_warehouse', 'wip_warehouse', 'scrap_warehouse','from_warehouse', 'to_warehouse']
 
 	def field_maps_to_account(self, field_name):
 		"""Check if field should use account mapping"""
@@ -329,22 +329,72 @@ class DocumentTypeMapping(Document):
 			return item_code
 
 	def get_warehouse_mapping(self, warehouse):
-		"""Get mapped warehouse name from SPP Warehouse Mapping child table"""
+		"""Get mapped warehouse name from SPP Warehouse Mapping child table with item group support"""
 		try:
 			mapping_doc = frappe.db.get_value("SPP Warehouse Mapping", 
 				{"is_active": 1}, "name")
 			
 			if mapping_doc:
-				mapped_warehouse = frappe.db.get_value("SPP Warehouse Mapping Detail",
-					{"parent": mapping_doc, "producer_warehouse": warehouse}, "consumer_warehouse")
-				if mapped_warehouse:
+				# Get current document context to access item information
+				doc_data = getattr(self, 'current_doc_data', {})
+				item_code = doc_data.get('item_code') or doc_data.get('item')
+				item_group = None
+				
+				# Get item group if we have an item code
+				if item_code:
+					item_group = frappe.db.get_value("Item", item_code, "item_group")
+				
+				 # Get ALL warehouse mappings for this producer warehouse (not just one record)
+				all_mappings = frappe.db.get_all("SPP Warehouse Mapping Detail",
+					filters={
+						"parent": mapping_doc, 
+						"producer_warehouse": warehouse,
+						"is_active": 1
+					},
+					fields=["consumer_warehouse", "item_group"]
+				)
+				
+				if not all_mappings:
+					frappe.logger().warning(f"No mapping found for warehouse: {warehouse}")
+					return warehouse
+				
+				# Sort mappings by priority: specific item group first, then general mappings
+				specific_mappings = []
+				general_mappings = []
+				
+				for mapping in all_mappings:
+					mapping_item_groups = mapping.get("item_group", "").strip()
+					
+					if not mapping_item_groups:
+						# General mapping (no item group specified)
+						general_mappings.append(mapping)
+					elif item_group:
+						# Check if current item group matches any of the comma-separated groups
+						item_groups_list = [ig.strip() for ig in mapping_item_groups.split(",") if ig.strip()]
+						if item_group in item_groups_list:
+							specific_mappings.append(mapping)
+				
+				# Priority 1: Use specific item group mapping if found
+				if specific_mappings:
+					mapped_warehouse = specific_mappings[0]["consumer_warehouse"]
 					if frappe.db.exists("Warehouse", mapped_warehouse):
-						frappe.logger().info(f"Warehouse mapping: {warehouse} -> {mapped_warehouse}")
+						frappe.logger().info(f"Warehouse mapping (item group {item_group}): {warehouse} -> {mapped_warehouse}")
+						return mapped_warehouse
+					else:
+						frappe.logger().warning(f"Mapped warehouse '{mapped_warehouse}' does not exist for item group '{item_group}'")
+				
+				# Priority 2: Use general mapping as fallback
+				if general_mappings:
+					mapped_warehouse = general_mappings[0]["consumer_warehouse"]
+					if frappe.db.exists("Warehouse", mapped_warehouse):
+						frappe.logger().info(f"Warehouse mapping (general): {warehouse} -> {mapped_warehouse}")
 						return mapped_warehouse
 					else:
 						frappe.logger().warning(f"Mapped warehouse '{mapped_warehouse}' does not exist for original '{warehouse}'")
-				else:
-					frappe.logger().warning(f"No mapping found for warehouse: {warehouse}")
+				
+				# No valid mapping found
+				item_info = f" (item group: {item_group})" if item_group else ""
+				frappe.logger().warning(f"No valid mapping found for warehouse: {warehouse}{item_info}")
 			
 			return warehouse
 		except Exception as e:
