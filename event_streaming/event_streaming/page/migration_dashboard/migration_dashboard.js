@@ -325,22 +325,46 @@ class MigrationDashboard {
         
         // Find fields that are common across all selected doctypes
         if (selected_doctypes.length === 1) {
-            // For single doctype, show all filterable fields
+            // For single doctype, show all filterable fields including child table fields
             const doctype = selected_doctypes[0];
             const meta = this.doctype_meta_cache[doctype];
             if (meta && meta.fields) {
-                common_fields = meta.fields.filter(field => 
+                // Parent table fields
+                const parent_fields = meta.fields.filter(field => 
                     this.is_field_filterable(field)
                 ).map(field => ({
                     fieldname: field.fieldname,
                     label: field.label || field.fieldname,
                     fieldtype: field.fieldtype,
                     options: field.options,
-                    doctype: doctype
+                    doctype: doctype,
+                    is_child_table: false
                 }));
+
+                // Child table fields
+                const child_table_fields = [];
+                if (meta.child_tables) {
+                    Object.keys(meta.child_tables).forEach(table_field => {
+                        const child_table = meta.child_tables[table_field];
+                        child_table.fields.forEach(child_field => {
+                            child_table_fields.push({
+                                fieldname: `${table_field}.${child_field.fieldname}`,
+                                label: `${child_table.label} → ${child_field.label || child_field.fieldname}`,
+                                fieldtype: child_field.fieldtype,
+                                options: child_field.options,
+                                doctype: doctype,
+                                is_child_table: true,
+                                parent_table: table_field,
+                                child_doctype: child_table.child_doctype
+                            });
+                        });
+                    });
+                }
+
+                common_fields = [...parent_fields, ...child_table_fields];
             }
         } else {
-            // For multiple doctypes, find common fields
+            // For multiple doctypes, find common fields (parent table only for simplicity)
             const all_field_sets = selected_doctypes.map(doctype => {
                 const meta = this.doctype_meta_cache[doctype];
                 return meta && meta.fields ? meta.fields.filter(field => 
@@ -359,19 +383,20 @@ class MigrationDashboard {
                     label: field.label || field.fieldname,
                     fieldtype: field.fieldtype,
                     options: field.options,
-                    doctype: 'common'
+                    doctype: 'common',
+                    is_child_table: false
                 }));
             }
         }
 
         // Always include standard fields
         const standard_fields = [
-            { fieldname: 'name', label: 'ID', fieldtype: 'Data', doctype: 'standard' },
-            { fieldname: 'owner', label: 'Created By', fieldtype: 'Link', options: 'User', doctype: 'standard' },
+            { fieldname: 'name', label: 'ID', fieldtype: 'Data', doctype: 'standard', is_child_table: false },
+            { fieldname: 'owner', label: 'Created By', fieldtype: 'Link', options: 'User', doctype: 'standard', is_child_table: false },
             { fieldname: 'docstatus', label: 'Document Status', fieldtype: 'Select', 
-              options: '0\n1\n2', doctype: 'standard' },
-            { fieldname: 'creation', label: 'Created On', fieldtype: 'Datetime', doctype: 'standard' },
-            { fieldname: 'modified', label: 'Last Modified', fieldtype: 'Datetime', doctype: 'standard' }
+              options: '0\n1\n2', doctype: 'standard', is_child_table: false },
+            { fieldname: 'creation', label: 'Created On', fieldtype: 'Datetime', doctype: 'standard', is_child_table: false },
+            { fieldname: 'modified', label: 'Last Modified', fieldtype: 'Datetime', doctype: 'standard', is_child_table: false }
         ];
 
         return [...standard_fields, ...common_fields];
@@ -442,10 +467,23 @@ class MigrationDashboard {
         // Populate field options
         const $field_select = $filter_row.find('.filter-field-select');
         available_fields.forEach(field => {
-            const option_text = field.doctype === 'standard' ? field.label : 
-                               field.doctype === 'common' ? `${field.label} (Common)` :
-                               `${field.label} (${field.doctype})`;
-            $field_select.append(`<option value="${field.fieldname}" data-fieldtype="${field.fieldtype}" data-options="${field.options || ''}">${option_text}</option>`);
+            let option_text;
+            if (field.doctype === 'standard') {
+                option_text = field.label;
+            } else if (field.doctype === 'common') {
+                option_text = `${field.label} (Common)`;
+            } else if (field.is_child_table) {
+                option_text = `${field.label} (Child Table)`;
+            } else {
+                option_text = `${field.label} (${field.doctype})`;
+            }
+            
+            $field_select.append(`<option value="${field.fieldname}" 
+                data-fieldtype="${field.fieldtype}" 
+                data-options="${field.options || ''}"
+                data-is-child-table="${field.is_child_table || false}"
+                data-parent-table="${field.parent_table || ''}"
+                data-child-doctype="${field.child_doctype || ''}">${option_text}</option>`);
         });
 
         $container.append($filter_row);
@@ -518,6 +556,8 @@ class MigrationDashboard {
             case 'Link':
                 return [
                     ...base_operators,
+                    { value: 'like', label: 'contains' },
+                    { value: 'not like', label: 'not contains' },
                     { value: 'in', label: 'in' },
                     { value: 'not in', label: 'not in' },
                     { value: 'is', label: 'is' },
@@ -543,6 +583,8 @@ class MigrationDashboard {
             case 'Datetime':
                 return [
                     ...base_operators,
+                    { value: 'like', label: 'contains' },
+                    { value: 'not like', label: 'not contains' },
                     { value: '>', label: '>' },
                     { value: '>=', label: '>=' },
                     { value: '<', label: '<' },
@@ -552,11 +594,16 @@ class MigrationDashboard {
 
             case 'Check':
                 return [
-                    { value: '=', label: '=' }
+                    { value: '=', label: '=' },
+                    { value: 'like', label: 'contains' }
                 ];
 
             default:
-                return base_operators;
+                return [
+                    ...base_operators,
+                    { value: 'like', label: 'contains' },
+                    { value: 'not like', label: 'not contains' }
+                ];
         }
     }
 
@@ -633,10 +680,23 @@ class MigrationDashboard {
             $select.empty().append(`<option value="">${__('Select Field')}</option>`);
             
             available_fields.forEach(field => {
-                const option_text = field.doctype === 'standard' ? field.label : 
-                                   field.doctype === 'common' ? `${field.label} (Common)` :
-                                   `${field.label} (${field.doctype})`;
-                $select.append(`<option value="${field.fieldname}" data-fieldtype="${field.fieldtype}" data-options="${field.options || ''}">${option_text}</option>`);
+                let option_text;
+                if (field.doctype === 'standard') {
+                    option_text = field.label;
+                } else if (field.doctype === 'common') {
+                    option_text = `${field.label} (Common)`;
+                } else if (field.is_child_table) {
+                    option_text = `${field.label} (Child Table)`;
+                } else {
+                    option_text = `${field.label} (${field.doctype})`;
+                }
+                
+                $select.append(`<option value="${field.fieldname}" 
+                    data-fieldtype="${field.fieldtype}" 
+                    data-options="${field.options || ''}"
+                    data-is-child-table="${field.is_child_table || false}"
+                    data-parent-table="${field.parent_table || ''}"
+                    data-child-doctype="${field.child_doctype || ''}">${option_text}</option>`);
             });
             
             // Restore previous value if still available

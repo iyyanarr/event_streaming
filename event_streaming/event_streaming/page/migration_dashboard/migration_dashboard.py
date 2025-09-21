@@ -57,6 +57,63 @@ def get_paginated_docs(producer_site, doctype, filters, start=0, page_length=BAT
         limit_page_length=page_length
     )
 
+def get_filtered_documents_with_child_tables(producer_site, doctype, parent_filters=None, child_table_filters=None, date_filters=None, limit=None):
+    """
+    Use the special producer API to filter documents based on child table fields
+    This overcomes Frappe Client REST API limitations for child table filtering
+    """
+    try:
+        # Call the special API endpoint on producer
+        result = producer_site.post_request({
+            "cmd": "event_streaming.event_streaming.doctype.event_producer.event_producer_api.get_filtered_documents_with_child_tables",
+            "doctype": doctype,
+            "filters": parent_filters or [],
+            "child_table_filters": child_table_filters or [],
+            "date_filters": date_filters or [],
+            "limit": limit
+        })
+        
+        if result.get("status") == "success":
+            return result.get("document_names", [])
+        else:
+            frappe.logger().error(f"Child table filtering failed: {result.get('message')}")
+            return []
+            
+    except Exception as e:
+        frappe.logger().error(f"Error calling child table filter API: {str(e)}")
+        return []
+
+def has_child_table_filters(custom_filters):
+    """Check if any custom filters are for child table fields"""
+    for custom_filter in custom_filters:
+        field = custom_filter.get('field', '')
+        if '.' in field:  # Child table fields are in format "table_field.child_field"
+            return True
+    return False
+
+def separate_child_table_filters(custom_filters):
+    """Separate parent and child table filters"""
+    parent_filters = []
+    child_table_filters = []
+    
+    for custom_filter in custom_filters:
+        field = custom_filter.get('field', '')
+        
+        if '.' in field:
+            # Child table filter - format: "items.item_code"
+            table_field, child_field = field.split('.', 1)
+            child_table_filters.append({
+                'table_field': table_field,
+                'fieldname': child_field,
+                'operator': custom_filter.get('operator'),
+                'value': custom_filter.get('value')
+            })
+        else:
+            # Parent table filter
+            parent_filters.append(custom_filter)
+    
+    return parent_filters, child_table_filters
+
 def update_doc_with_retries(doctype, doc_name, field_updates, retries=MAX_RETRIES):
     """Update document fields with retries"""
     for attempt in range(retries):
@@ -90,13 +147,15 @@ def update_doc_with_retries(doctype, doc_name, field_updates, retries=MAX_RETRIE
 
 @frappe.whitelist()
 def get_doctype_meta(doctype):
-    """Get doctype metadata for field filtering"""
+    """Get doctype metadata for field filtering including child table fields"""
     try:
         # Get the doctype meta information
         meta = frappe.get_meta(doctype)
         
         # Return field information that's useful for filtering
         fields = []
+        child_tables = {}
+        
         for field in meta.fields:
             if field.fieldtype in [
                 'Data', 'Select', 'Link', 'Int', 'Float', 'Currency', 
@@ -111,10 +170,37 @@ def get_doctype_meta(doctype):
                     'hidden': field.hidden,
                     'read_only': field.read_only
                 })
+            
+            # Collect child table information
+            if field.fieldtype == "Table" and field.options:
+                try:
+                    child_meta = frappe.get_meta(field.options)
+                    child_fields = []
+                    
+                    for child_field in child_meta.fields:
+                        if child_field.fieldtype in [
+                            'Data', 'Select', 'Link', 'Int', 'Float', 'Currency', 
+                            'Date', 'Datetime', 'Check', 'Text', 'Small Text'
+                        ] and not child_field.hidden and not child_field.read_only:
+                            child_fields.append({
+                                'fieldname': child_field.fieldname,
+                                'label': child_field.label or child_field.fieldname,
+                                'fieldtype': child_field.fieldtype,
+                                'options': child_field.options
+                            })
+                    
+                    child_tables[field.fieldname] = {
+                        'label': field.label or field.fieldname,
+                        'child_doctype': field.options,
+                        'fields': child_fields
+                    }
+                except Exception as e:
+                    frappe.logger().error(f"Error getting child table meta for {field.options}: {str(e)}")
         
         return {
             'name': meta.name,
-            'fields': fields
+            'fields': fields,
+            'child_tables': child_tables
         }
         
     except Exception as e:
@@ -122,7 +208,8 @@ def get_doctype_meta(doctype):
             title=f"Get doctype meta failed for {doctype}")
         return {
             'name': doctype,
-            'fields': []
+            'fields': [],
+            'child_tables': {}
         }
 
 def build_custom_filters(custom_filters, filter_mode="AND"):
@@ -262,44 +349,99 @@ def get_producer_data_preview(producer_url, filters):
             # Add filter for non-canceled documents
             date_filters.append(["docstatus", "<", 2])
 
-            # Build custom filters
-            custom_filters = build_custom_filters(
-                filters.get("custom_filters", []), 
+            # Separate parent and child table filters
+            custom_filters = filters.get("custom_filters", [])
+            parent_custom_filters, child_table_filters = separate_child_table_filters(custom_filters)
+            
+            # Build parent filters
+            parent_filter_conditions = build_custom_filters(
+                parent_custom_filters, 
                 filters.get("filter_mode", "AND")
             )
             
-            # Combine date filters and custom filters
-            combined_filters = date_filters + custom_filters
+            # Combine date filters and parent custom filters
+            combined_parent_filters = date_filters + parent_filter_conditions
 
             try:
-                # Get count of records matching the filter by getting all records with just the name field
-                records = producer_site.get_list(doctype, 
-                    fields=["name"],
-                    filters=combined_filters,
-                    limit_page_length=0  # No limit to get all records
-                )
-                total_count = len(records)
+                # Check if we have child table filters
+                if child_table_filters:
+                    # Use special API for child table filtering
+                    # First get the child doctype mapping for the filters
+                    enhanced_child_filters = []
+                    for child_filter in child_table_filters:
+                        table_field = child_filter['table_field']
+                        
+                        # Get the child doctype from the parent meta
+                        try:
+                            parent_meta = producer_site.get_doc("DocType", doctype)
+                            child_doctype = None
+                            for field in parent_meta.get("fields", []):
+                                if field.get("fieldname") == table_field and field.get("fieldtype") == "Table":
+                                    child_doctype = field.get("options")
+                                    break
+                            
+                            if child_doctype:
+                                enhanced_child_filters.append({
+                                    'child_doctype': child_doctype,
+                                    'fieldname': child_filter['fieldname'],
+                                    'operator': child_filter['operator'],
+                                    'value': child_filter['value']
+                                })
+                        except Exception as e:
+                            frappe.logger().error(f"Error getting child doctype for {table_field}: {str(e)}")
+                    
+                    # Get filtered document names using child table API
+                    document_names = get_filtered_documents_with_child_tables(
+                        producer_site, 
+                        doctype, 
+                        combined_parent_filters,
+                        enhanced_child_filters,
+                        date_filters
+                    )
+                    
+                    total_count = len(document_names)
+                    
+                    # Get sample entries using the filtered names
+                    sample_entries = []
+                    if document_names:
+                        sample_names = document_names[:5]  # First 5 for sample
+                        try:
+                            sample_fields = ["name", "creation", "modified", "owner", filter_field, "docstatus"]
+                            for sample_name in sample_names:
+                                doc = producer_site.get_doc(doctype, sample_name)
+                                sample_entry = {}
+                                for field in sample_fields:
+                                    sample_entry[field] = doc.get(field)
+                                sample_entries.append(sample_entry)
+                        except Exception as e:
+                            frappe.logger().error(f"Error getting sample entries: {str(e)}")
+                else:
+                    # Use regular filtering for parent fields only
+                    records = producer_site.get_list(doctype, 
+                        fields=["name"],
+                        filters=combined_parent_filters,
+                        limit_page_length=0  # No limit to get all records
+                    )
+                    total_count = len(records)
+                    
+                    # Get sample entries (limited to 5)
+                    sample_fields = ["name", "creation", "modified", "owner", filter_field, "docstatus"]
+                    
+                    # Add custom filter fields to sample for better preview
+                    for custom_filter in parent_custom_filters:
+                        field_name = custom_filter.get("field")
+                        if field_name and field_name not in sample_fields:
+                            sample_fields.append(field_name)
+                    
+                    sample_entries = producer_site.get_list(doctype, 
+                        fields=sample_fields,
+                        filters=combined_parent_filters,
+                        limit_page_length=5
+                    )
+                    
             except Exception as e:
                 frappe.logger().error(f"Error getting count for {doctype}: {str(e)}")
                 total_count = 0
-            
-            # Get sample entries (limited to 5)
-            try:
-                sample_fields = ["name", "creation", "modified", "owner", filter_field, "docstatus"]
-                
-                # Add custom filter fields to sample for better preview
-                for custom_filter in filters.get("custom_filters", []):
-                    field_name = custom_filter.get("field")
-                    if field_name and field_name not in sample_fields:
-                        sample_fields.append(field_name)
-                
-                sample_entries = producer_site.get_list(doctype, 
-                    fields=sample_fields,
-                    filters=combined_filters,
-                    limit_page_length=5
-                )
-            except Exception as e:
-                frappe.logger().error(f"Error getting sample entries for {doctype}: {str(e)}")
                 sample_entries = []
             
             stats["doctypes"][doctype] = {
@@ -540,6 +682,9 @@ def process_doctype_migration(job, producer, producer_site, doctype):
             custom_filters = config.get("custom_filters", [])
             filter_mode = config.get("filter_mode", "AND")
         
+        # Separate parent and child table filters
+        parent_custom_filters, child_table_filters = separate_child_table_filters(custom_filters)
+        
         # Build filters
         filter_field = {
             "Creation Date": "creation",
@@ -548,7 +693,7 @@ def process_doctype_migration(job, producer, producer_site, doctype):
             "Posting Date": "posting_date"
         }.get(job.date_filter_type, "creation")
         
-        filters = []
+        date_filters = []
         if job.get("from_date") and job.get("to_date"):
             # Convert datetime objects to ISO format strings for JSON serialization
             from_date = job.from_date.isoformat() if hasattr(job.from_date, 'isoformat') else job.from_date
@@ -559,59 +704,64 @@ def process_doctype_migration(job, producer, producer_site, doctype):
                 from_date = from_date.split('T')[0]  # Get only the date part
                 to_date = to_date.split('T')[0]  # Get only the date part
             
-            filters.append([filter_field, "between", [from_date, to_date]])
+            date_filters.append([filter_field, "between", [from_date, to_date]])
         
         # Add filter to exclude canceled documents
-        filters.append(["docstatus", "<", 2])  # 0=Draft, 1=Submitted, 2=Cancelled
+        date_filters.append(["docstatus", "<", 2])  # 0=Draft, 1=Submitted, 2=Cancelled
         
-        # Add custom filters
-        custom_filter_conditions = build_custom_filters(custom_filters, filter_mode)
-        filters.extend(custom_filter_conditions)
-            
-        # Skip if doctype doesn't have the selected date field
-        if filter_field not in ["creation", "modified"]:
-            meta = producer_site.get_doc("DocType", doctype)
-            # Access fields from the dictionary instead of attribute
-            if not any(f.get("fieldname") == filter_field for f in meta.get("fields", [])):
-                frappe.logger().warning(f"Skipping {doctype} as it doesn't have field {filter_field}")
-                processed = json.loads(job.processed_doctypes or "{}")
-                processed[doctype] = {"total": 0, "processed": 0, "skipped": True, 
-                    "reason": f"Document type doesn't have {job.date_filter_type} field"}
-                job.db_set("processed_doctypes", json.dumps(processed))
-                return
-            
-        # Get total count first
-        if doctype == "Purchase Order":
-            frappe.logger().info(f"Fetching Purchase Orders with filters: {filters}")
-            
-        total_count = len(producer_site.get_list(doctype, filters=filters, limit_page_length=0))
-            
-        if doctype == "Purchase Order":
-            frappe.logger().info(f"Found {total_count} Purchase Orders to migrate")
-            
-        processed = json.loads(job.processed_doctypes or "{}")
-        processed[doctype] = {"total": total_count, "processed": 0, "failed": 0}
-        job.db_set("processed_doctypes", json.dumps(processed))
+        # Add parent custom filters
+        parent_filter_conditions = build_custom_filters(parent_custom_filters, filter_mode)
+        combined_parent_filters = date_filters + parent_filter_conditions
         
-        # Process in batches
-        start = 0
-        while True:
-            if doctype == "Purchase Order":
-                frappe.logger().info(f"Fetching batch of Purchase Orders starting at {start}")
+        # Check if we have child table filters
+        if child_table_filters:
+            # Use special API for child table filtering
+            enhanced_child_filters = []
+            for child_filter in child_table_filters:
+                table_field = child_filter['table_field']
                 
-            docs = get_paginated_docs(producer_site, doctype, filters, start, BATCH_SIZE)
-            if not docs:
-                break
-                
-            if doctype == "Purchase Order":
-                frappe.logger().info(f"Processing {len(docs)} Purchase Orders in current batch")
-                
-            for doc in docs:
-                doc_name = doc.get('name', 'Unknown')
+                # Get the child doctype from the parent meta
                 try:
-                    if doctype == "Purchase Order":
-                        frappe.logger().info(f"Processing Purchase Order {doc_name}")
-                        
+                    parent_meta = producer_site.get_doc("DocType", doctype)
+                    child_doctype = None
+                    for field in parent_meta.get("fields", []):
+                        if field.get("fieldname") == table_field and field.get("fieldtype") == "Table":
+                            child_doctype = field.get("options")
+                            break
+                    
+                    if child_doctype:
+                        enhanced_child_filters.append({
+                            'child_doctype': child_doctype,
+                            'fieldname': child_filter['fieldname'],
+                            'operator': child_filter['operator'],
+                            'value': child_filter['value']
+                        })
+                except Exception as e:
+                    frappe.logger().error(f"Error getting child doctype for {table_field}: {str(e)}")
+            
+            # Get filtered document names using child table API
+            document_names = get_filtered_documents_with_child_tables(
+                producer_site, 
+                doctype, 
+                combined_parent_filters,
+                enhanced_child_filters,
+                date_filters
+            )
+            
+            total_count = len(document_names)
+            
+            # Process using the filtered document names
+            processed = json.loads(job.processed_doctypes or "{}")
+            processed[doctype] = {"total": total_count, "processed": 0, "failed": 0}
+            job.db_set("processed_doctypes", json.dumps(processed))
+            
+            # Process documents by name
+            for doc_name in document_names:
+                try:
+                    frappe.logger().info(f"Processing {doctype} {doc_name}")
+                    
+                    # Get full document from producer
+                    doc = producer_site.get_doc(doctype, doc_name)
                     migrate_single_document(producer, producer_site, doctype, doc)
                     
                     # Update SUCCESS progress
@@ -619,25 +769,90 @@ def process_doctype_migration(job, producer, producer_site, doctype):
                     job.db_set("processed_doctypes", json.dumps(processed))
                     job.db_set("processed_docs", (job.processed_docs or 0) + 1)
                     
-                    if doctype == "Purchase Order":
-                        frappe.logger().info(f"✅ Successfully processed Purchase Order {doc_name}")
-                        
+                    frappe.logger().info(f"✅ Successfully processed {doctype} {doc_name}")
+                    
                 except Exception as e:
-                    # Update FAILURE progress - IMPORTANT: Still count as processed
+                    # Update FAILURE progress
                     processed[doctype]["failed"] += 1
                     job.db_set("processed_doctypes", json.dumps(processed))
                     job.db_set("processed_docs", (job.processed_docs or 0) + 1)
                     
-                    if doctype == "Purchase Order":
-                        frappe.logger().error(f"❌ Failed to process Purchase Order {doc_name}: {str(e)}")
-                        # Log the specific error for debugging
-                        if "Item Tax Template" in str(e):
-                            frappe.logger().error(f"🎯 Item Tax Template mapping issue for {doc_name}")
-                    
-                    # Continue processing other documents instead of stopping
+                    frappe.logger().error(f"❌ Failed to process {doctype} {doc_name}: {str(e)}")
                     continue
+        else:
+            # Use regular batch processing for parent-only filters
+            filters = combined_parent_filters
+            
+            # Skip if doctype doesn't have the selected date field
+            if filter_field not in ["creation", "modified"]:
+                meta = producer_site.get_doc("DocType", doctype)
+                # Access fields from the dictionary instead of attribute
+                if not any(f.get("fieldname") == filter_field for f in meta.get("fields", [])):
+                    frappe.logger().warning(f"Skipping {doctype} as it doesn't have field {filter_field}")
+                    processed = json.loads(job.processed_doctypes or "{}")
+                    processed[doctype] = {"total": 0, "processed": 0, "skipped": True, 
+                        "reason": f"Document type doesn't have {job.date_filter_type} field"}
+                    job.db_set("processed_doctypes", json.dumps(processed))
+                    return
+                
+            # Get total count first
+            if doctype == "Purchase Order":
+                frappe.logger().info(f"Fetching Purchase Orders with filters: {filters}")
+                
+            total_count = len(producer_site.get_list(doctype, filters=filters, limit_page_length=0))
+                
+            if doctype == "Purchase Order":
+                frappe.logger().info(f"Found {total_count} Purchase Orders to migrate")
+                
+            processed = json.loads(job.processed_doctypes or "{}")
+            processed[doctype] = {"total": total_count, "processed": 0, "failed": 0}
+            job.db_set("processed_doctypes", json.dumps(processed))
+            
+            # Process in batches
+            start = 0
+            while True:
+                if doctype == "Purchase Order":
+                    frappe.logger().info(f"Fetching batch of Purchase Orders starting at {start}")
                     
-            start += BATCH_SIZE
+                docs = get_paginated_docs(producer_site, doctype, filters, start, BATCH_SIZE)
+                if not docs:
+                    break
+                    
+                if doctype == "Purchase Order":
+                    frappe.logger().info(f"Processing {len(docs)} Purchase Orders in current batch")
+                    
+                for doc in docs:
+                    doc_name = doc.get('name', 'Unknown')
+                    try:
+                        if doctype == "Purchase Order":
+                            frappe.logger().info(f"Processing Purchase Order {doc_name}")
+                            
+                        migrate_single_document(producer, producer_site, doctype, doc)
+                        
+                        # Update SUCCESS progress
+                        processed[doctype]["processed"] += 1
+                        job.db_set("processed_doctypes", json.dumps(processed))
+                        job.db_set("processed_docs", (job.processed_docs or 0) + 1)
+                        
+                        if doctype == "Purchase Order":
+                            frappe.logger().info(f"✅ Successfully processed Purchase Order {doc_name}")
+                            
+                    except Exception as e:
+                        # Update FAILURE progress - IMPORTANT: Still count as processed
+                        processed[doctype]["failed"] += 1
+                        job.db_set("processed_doctypes", json.dumps(processed))
+                        job.db_set("processed_docs", (job.processed_docs or 0) + 1)
+                        
+                        if doctype == "Purchase Order":
+                            frappe.logger().error(f"❌ Failed to process Purchase Order {doc_name}: {str(e)}")
+                            # Log the specific error for debugging
+                            if "Item Tax Template" in str(e):
+                                frappe.logger().error(f"🎯 Item Tax Template mapping issue for {doc_name}")
+                        
+                        # Continue processing other documents instead of stopping
+                        continue
+                        
+                start += BATCH_SIZE
             
         # Log final summary
         final_processed = processed[doctype]["processed"]

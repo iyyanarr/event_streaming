@@ -363,7 +363,12 @@ class DocumentTypeMapping(Document):
 				general_mappings = []
 				
 				for mapping in all_mappings:
-					mapping_item_groups = mapping.get("item_group", "").strip()
+					mapping_item_groups = mapping.get("item_group") or ""
+					# Ensure it's a string before calling strip()
+					if mapping_item_groups:
+						mapping_item_groups = str(mapping_item_groups).strip()
+					else:
+						mapping_item_groups = ""
 					
 					if not mapping_item_groups:
 						# General mapping (no item group specified)
