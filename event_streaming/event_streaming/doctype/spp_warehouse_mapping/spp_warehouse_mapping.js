@@ -107,46 +107,65 @@ function test_warehouse_mapping(frm) {
 				fieldtype: 'Data',
 				fieldname: 'item_group',
 				label: __('Item Group (Optional)'),
-				description: __('Comma-separated item groups (e.g., Raw Material,Chemical). Leave empty to test without item group filtering')
+				description: __('For Stock Entry: Comma-separated item groups (e.g., Raw Material,Chemical). Leave empty to test without item group filtering')
+			},
+			{
+				fieldtype: 'Data',
+				fieldname: 'operations',
+				label: __('Operations (Optional)'),
+				description: __('For Work Order/BOM: Comma-separated operations (e.g., Mixing,Extrusion,Packing). Leave empty to test without operations filtering')
 			}
 		],
 		primary_action_label: __('Test'),
 		primary_action: function(values) {
 			let consumer_warehouse = null;
-			let item_groups_to_check = [];
+			let filter_values_to_check = [];
+			let filter_field = null;
 			
-			// Parse item groups if provided
-			if (values.item_group) {
-				item_groups_to_check = values.item_group.split(',').map(g => g.trim()).filter(g => g);
+			// Determine which filter to use - operations takes priority
+			if (values.operations) {
+				filter_field = 'operations';
+				filter_values_to_check = values.operations.split(',').map(g => g.trim()).filter(g => g);
+			} else if (values.item_group) {
+				filter_field = 'item_group';
+				filter_values_to_check = values.item_group.split(',').map(g => g.trim()).filter(g => g);
 			} else {
-				item_groups_to_check = [null]; // Check for general mappings
+				filter_values_to_check = [null]; // Check for general mappings
 			}
 
-			// Check each item group
-			for (let check_group of item_groups_to_check) {
+			// Check each filter value
+			for (let check_value of filter_values_to_check) {
 				for (let wh of (frm.doc.warehouse_mappings || [])) {
 					if (!wh.is_active) continue;
 					if (wh.producer_warehouse !== values.producer_warehouse) continue;
 
-					// Check for exact match
-					if (wh.item_group === check_group) {
-						consumer_warehouse = wh.consumer_warehouse;
-						break;
-					}
-					
-					// Check if mapping's item groups contain our check group
-					if (wh.item_group && check_group) {
-						let mapping_groups = wh.item_group.split(',').map(g => g.trim());
-						if (mapping_groups.includes(check_group)) {
+					if (filter_field) {
+						// Check for exact match
+						if (wh[filter_field] === check_value) {
 							consumer_warehouse = wh.consumer_warehouse;
 							break;
 						}
-					}
-					
-					// Fallback to general mapping if no item group specified in mapping
-					if (!wh.item_group && !check_group) {
-						consumer_warehouse = wh.consumer_warehouse;
-						break;
+						
+						// Check if mapping's filter values contain our check value
+						if (wh[filter_field] && check_value) {
+							let mapping_values = wh[filter_field].split(',').map(v => v.trim());
+							if (mapping_values.includes(check_value)) {
+								consumer_warehouse = wh.consumer_warehouse;
+								break;
+							}
+						}
+						
+						// Fallback to general mapping if no filter field specified in mapping
+						if (!wh[filter_field] && !check_value) {
+							consumer_warehouse = wh.consumer_warehouse;
+							break;
+						}
+					} else {
+						// No filter specified - use general mapping
+						if (!wh.item_group && !wh.operations) {
+							consumer_warehouse = wh.consumer_warehouse;
+							break;
+						}
 					}
 				}
 				
@@ -154,11 +173,21 @@ function test_warehouse_mapping(frm) {
 			}
 
 			if (consumer_warehouse) {
-				let item_group_display = values.item_group ? ` (Item Group: ${values.item_group})` : '';
-				frappe.msgprint(__('Mapping Result: {0}{1} → {2}', [values.producer_warehouse, item_group_display, consumer_warehouse]));
+				let filter_display = '';
+				if (values.operations) {
+					filter_display = ` (Operations: ${values.operations})`;
+				} else if (values.item_group) {
+					filter_display = ` (Item Group: ${values.item_group})`;
+				}
+				frappe.msgprint(__('Mapping Result: {0}{1} → {2}', [values.producer_warehouse, filter_display, consumer_warehouse]));
 			} else {
-				let item_group_display = values.item_group ? ` with item group(s): ${values.item_group}` : '';
-				frappe.msgprint(__('No mapping found for warehouse: {0}{1}', [values.producer_warehouse, item_group_display]));
+				let filter_display = '';
+				if (values.operations) {
+					filter_display = ` with operations: ${values.operations}`;
+				} else if (values.item_group) {
+					filter_display = ` with item group(s): ${values.item_group}`;
+				}
+				frappe.msgprint(__('No mapping found for warehouse: {0}{1}', [values.producer_warehouse, filter_display]));
 			}
 
 			this.hide();

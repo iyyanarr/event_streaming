@@ -9,6 +9,7 @@
   "consumer_warehouse",
   "column_break_3",
   "item_group",
+  "operations",
   "is_active",
   "notes"
  ],
@@ -38,6 +39,12 @@
    "description": "Comma-separated item groups (e.g., Raw Material,Chemical,Plastic). Leave blank for all item groups."
   },
   {
+   "fieldname": "operations",
+   "fieldtype": "Data",
+   "label": "Operations",
+   "description": "Comma-separated operations (e.g., Mixing,Extrusion,Packing). Used for Work Order and BOM warehouse mapping."
+  },
+  {
    "default": "1",
    "fieldname": "is_active",
    "fieldtype": "Check",
@@ -53,7 +60,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-04 06:55:00.000000",
+ "modified": "2025-09-21 16:30:00.000000",
  "modified_by": "Administrator",
  "module": "Event Streaming",
  "name": "SPP Warehouse Mapping Detail",

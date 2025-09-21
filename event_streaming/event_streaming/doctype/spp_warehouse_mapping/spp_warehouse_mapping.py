@@ -31,38 +31,57 @@ class SPPWarehouseMapping(Document):
 					))
 				producer_warehouses[key] = True
 	
-	def get_consumer_warehouse(self, producer_warehouse, item_group=None):
-		"""Get the consumer warehouse for a given producer warehouse and item group.
-		Supports multiple item groups (comma-separated) in the mapping.
+	def get_consumer_warehouse(self, producer_warehouse, item_group=None, operations=None):
+		"""Get the consumer warehouse for a given producer warehouse with item group or operations filtering.
+		Supports multiple item groups or operations (comma-separated) in the mapping.
+		
+		Args:
+			producer_warehouse: The source warehouse to map from
+			item_group: Item group(s) for filtering (used for Stock Entry)
+			operations: Operation(s) for filtering (used for Work Order/BOM)
 		"""
 		if not self.warehouse_mappings:
 			return producer_warehouse
 		
-		# If item_group is provided, split by comma and check each
-		item_groups_to_check = []
-		if item_group:
-			item_groups_to_check = [g.strip() for g in item_group.split(',') if g.strip()]
-		else:
-			item_groups_to_check = [None]  # Check for general mappings
+		# Determine which filter to use - operations takes priority if both are provided
+		filter_field = None
+		filter_values_to_check = []
 		
-		# First, try to find exact matches for each item group
-		for check_group in item_groups_to_check:
+		if operations:
+			filter_field = "operations"
+			filter_values_to_check = [op.strip() for op in operations.split(',') if op.strip()]
+		elif item_group:
+			filter_field = "item_group"
+			filter_values_to_check = [ig.strip() for ig in item_group.split(',') if ig.strip()]
+		else:
+			filter_values_to_check = [None]  # Check for general mappings
+		
+		# First, try to find exact matches for each filter value
+		for check_value in filter_values_to_check:
+			for mapping in self.warehouse_mappings:
+				if (mapping.producer_warehouse == producer_warehouse and 
+					mapping.is_active):
+					if filter_field and hasattr(mapping, filter_field):
+						mapping_filter_value = getattr(mapping, filter_field)
+						if mapping_filter_value == check_value:
+							return mapping.consumer_warehouse
+					elif not filter_field and not getattr(mapping, 'item_group', None) and not getattr(mapping, 'operations', None):
+						# General mapping - no filters specified
+						return mapping.consumer_warehouse
+		
+		# If no exact match, check if any of the mapping's filter values match our filter values
+		if filter_field:
 			for mapping in self.warehouse_mappings:
 				if (mapping.producer_warehouse == producer_warehouse and 
 					mapping.is_active and 
-					mapping.item_group == check_group):
-					return mapping.consumer_warehouse
-		
-		# If no exact match, check if any of the mapping's item groups match our item groups
-		for mapping in self.warehouse_mappings:
-			if (mapping.producer_warehouse == producer_warehouse and 
-				mapping.is_active and 
-				mapping.item_group):
-				# Check if any of our item groups match the mapping's item groups
-				mapping_groups = [g.strip() for g in mapping.item_group.split(',') if g.strip()]
-				for check_group in item_groups_to_check:
-					if check_group in mapping_groups:
-						return mapping.consumer_warehouse
+					hasattr(mapping, filter_field)):
+					mapping_filter_value = getattr(mapping, filter_field)
+					if mapping_filter_value:
+						# Check if any of our filter values match the mapping's filter values
+						mapping_values = [v.strip() for v in mapping_filter_value.split(',') if v.strip()]
+						for check_value in filter_values_to_check:
+							if check_value in mapping_values:
+								return mapping.consumer_warehouse
 		
 		# Finally, check for general mappings (no item group specified)
 		for mapping in self.warehouse_mappings:
@@ -168,8 +187,16 @@ class SPPWarehouseMapping(Document):
 
 
 @frappe.whitelist()
-def get_warehouse_mapping_for_sites(producer_site, consumer_site, producer_warehouse, item_group=None):
-	"""Get warehouse mapping between two sites for a specific warehouse"""
+def get_warehouse_mapping_for_sites(producer_site, consumer_site, producer_warehouse, item_group=None, operations=None):
+	"""Get warehouse mapping between two sites for a specific warehouse
+	
+	Args:
+		producer_site: Source site
+		consumer_site: Target site  
+		producer_warehouse: Source warehouse to map from
+		item_group: Item group(s) for filtering (used for Stock Entry)
+		operations: Operation(s) for filtering (used for Work Order/BOM)
+	"""
 	# Query for mapping using the correct field names
 	mapping = frappe.db.get_value(
 		"SPP Warehouse Mapping",
@@ -179,7 +206,7 @@ def get_warehouse_mapping_for_sites(producer_site, consumer_site, producer_wareh
 	
 	if mapping:
 		doc = frappe.get_doc("SPP Warehouse Mapping", mapping)
-		return doc.get_consumer_warehouse(producer_warehouse, item_group)
+		return doc.get_consumer_warehouse(producer_warehouse, item_group, operations)
 	
 	return producer_warehouse
 
@@ -254,34 +281,53 @@ def bulk_create_warehouse_mappings_from_csv(file_path, mapping_name, producer_si
 
 
 @frappe.whitelist()
-def test_multiple_item_groups():
-	"""Test function to verify multiple item groups functionality"""
-	print("Testing warehouse mapping with multiple item groups...")
+def test_warehouse_mapping_functionality():
+	"""Test function to verify warehouse mapping functionality with item groups and operations"""
+	print("Testing warehouse mapping functionality...")
 	print("=" * 60)
 	
 	# Test data
 	test_warehouse = 'Incoming Store - SPP INDIA'
-	test_item_groups = ['Raw Materials - SPP', 'Carbon', 'Chemical', 'Chemicals', 'MOULD', 'Other', 'Plastisizer', 'Rubber']
+	test_item_groups = ['Raw Materials - SPP', 'Carbon', 'Chemical', 'Chemicals']
+	test_operations = ['Mixing', 'Extrusion', 'Packing', 'Quality Control']
 	
 	print(f'Producer Warehouse: {test_warehouse}')
 	print(f'Item Groups: {test_item_groups}')
+	print(f'Operations: {test_operations}')
 	print()
 	
 	try:
-		# Test the mapping function
-		mapped_warehouse = get_warehouse_mapping_for_sites(
+		# Test item group mapping (for Stock Entry)
+		print("Testing Item Group Mapping (Stock Entry):")
+		mapped_warehouse_ig = get_warehouse_mapping_for_sites(
 			producer_site='sppmaster.local',
 			consumer_site='2526spp.local',
 			producer_warehouse=test_warehouse,
-			item_group=', '.join(test_item_groups)  # Join the list into comma-separated string
+			item_group=', '.join(test_item_groups)
 		)
+		print(f'Item Group Mapped Warehouse: {mapped_warehouse_ig}')
 		
-		print(f'Mapped Warehouse: {mapped_warehouse}')
+		# Test operations mapping (for Work Order/BOM)
+		print("\nTesting Operations Mapping (Work Order/BOM):")
+		mapped_warehouse_op = get_warehouse_mapping_for_sites(
+			producer_site='sppmaster.local',
+			consumer_site='2526spp.local',
+			producer_warehouse=test_warehouse,
+			operations=', '.join(test_operations)
+		)
+		print(f'Operations Mapped Warehouse: {mapped_warehouse_op}')
+		
 		print("✓ Test completed successfully!")
-		return {"success": True, "mapped_warehouse": mapped_warehouse}
+		return {"success": True, "item_group_mapping": mapped_warehouse_ig, "operations_mapping": mapped_warehouse_op}
 		
 	except Exception as e:
 		print(f"✗ Test failed with error: {str(e)}")
 		import traceback
 		traceback.print_exc()
 		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist() 
+def test_multiple_item_groups():
+	"""Legacy test function - calls the new comprehensive test"""
+	return test_warehouse_mapping_functionality()

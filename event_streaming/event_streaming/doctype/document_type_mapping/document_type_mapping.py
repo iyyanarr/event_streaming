@@ -329,64 +329,82 @@ class DocumentTypeMapping(Document):
 			return item_code
 
 	def get_warehouse_mapping(self, warehouse):
-		"""Get mapped warehouse name from SPP Warehouse Mapping child table with item group support"""
+		"""Get mapped warehouse name from SPP Warehouse Mapping child table with item group and operations support"""
 		try:
 			mapping_doc = frappe.db.get_value("SPP Warehouse Mapping", 
 				{"is_active": 1}, "name")
 			
 			if mapping_doc:
-				# Get current document context to access item information
+				# Get current document context to access item and doctype information
 				doc_data = getattr(self, 'current_doc_data', {})
 				item_code = doc_data.get('item_code') or doc_data.get('item')
-				item_group = None
+				doctype = doc_data.get('doctype', self.source_doctype)
 				
-				# Get item group if we have an item code
-				if item_code:
-					item_group = frappe.db.get_value("Item", item_code, "item_group")
+				# Determine which field to use based on doctype
+				filter_field = None
+				filter_value = None
 				
-				 # Get ALL warehouse mappings for this producer warehouse (not just one record)
+				if doctype == "Stock Entry":
+					# For Stock Entry, use item_group
+					if item_code:
+						filter_value = frappe.db.get_value("Item", item_code, "item_group")
+						filter_field = "item_group"
+				elif doctype in ["Work Order", "BOM"]:
+					# For Work Order/BOM, use operations from the document
+					operations = doc_data.get('operations') or doc_data.get('operation')
+					if operations:
+						filter_value = operations
+						filter_field = "operations"
+				
+				# Get ALL warehouse mappings for this producer warehouse
 				all_mappings = frappe.db.get_all("SPP Warehouse Mapping Detail",
 					filters={
 						"parent": mapping_doc, 
 						"producer_warehouse": warehouse,
 						"is_active": 1
 					},
-					fields=["consumer_warehouse", "item_group"]
+					fields=["consumer_warehouse", "item_group", "operations"]
 				)
 				
 				if not all_mappings:
 					frappe.logger().warning(f"No mapping found for warehouse: {warehouse}")
 					return warehouse
 				
-				# Sort mappings by priority: specific item group first, then general mappings
+				# Sort mappings by priority: specific field match first, then general mappings
 				specific_mappings = []
 				general_mappings = []
 				
 				for mapping in all_mappings:
-					mapping_item_groups = mapping.get("item_group") or ""
-					# Ensure it's a string before calling strip()
-					if mapping_item_groups:
-						mapping_item_groups = str(mapping_item_groups).strip()
+					if filter_field and filter_value:
+						# Get the filter field value from mapping
+						mapping_filter_value = mapping.get(filter_field) or ""
+						
+						# Ensure it's a string before calling strip()
+						if mapping_filter_value:
+							mapping_filter_value = str(mapping_filter_value).strip()
+						else:
+							mapping_filter_value = ""
+						
+						if not mapping_filter_value:
+							# General mapping (no filter field specified)
+							general_mappings.append(mapping)
+						else:
+							# Check if current filter value matches any of the comma-separated values
+							filter_values_list = [val.strip() for val in mapping_filter_value.split(",") if val.strip()]
+							if filter_value in filter_values_list:
+								specific_mappings.append(mapping)
 					else:
-						mapping_item_groups = ""
-					
-					if not mapping_item_groups:
-						# General mapping (no item group specified)
+						# No filter field/value - treat all as general mappings
 						general_mappings.append(mapping)
-					elif item_group:
-						# Check if current item group matches any of the comma-separated groups
-						item_groups_list = [ig.strip() for ig in mapping_item_groups.split(",") if ig.strip()]
-						if item_group in item_groups_list:
-							specific_mappings.append(mapping)
 				
-				# Priority 1: Use specific item group mapping if found
+				# Priority 1: Use specific field mapping if found
 				if specific_mappings:
 					mapped_warehouse = specific_mappings[0]["consumer_warehouse"]
 					if frappe.db.exists("Warehouse", mapped_warehouse):
-						frappe.logger().info(f"Warehouse mapping (item group {item_group}): {warehouse} -> {mapped_warehouse}")
+						frappe.logger().info(f"Warehouse mapping ({filter_field} {filter_value}): {warehouse} -> {mapped_warehouse}")
 						return mapped_warehouse
 					else:
-						frappe.logger().warning(f"Mapped warehouse '{mapped_warehouse}' does not exist for item group '{item_group}'")
+						frappe.logger().warning(f"Mapped warehouse '{mapped_warehouse}' does not exist for {filter_field} '{filter_value}'")
 				
 				# Priority 2: Use general mapping as fallback
 				if general_mappings:
@@ -398,8 +416,8 @@ class DocumentTypeMapping(Document):
 						frappe.logger().warning(f"Mapped warehouse '{mapped_warehouse}' does not exist for original '{warehouse}'")
 				
 				# No valid mapping found
-				item_info = f" (item group: {item_group})" if item_group else ""
-				frappe.logger().warning(f"No valid mapping found for warehouse: {warehouse}{item_info}")
+				filter_info = f" ({filter_field}: {filter_value})" if filter_field and filter_value else ""
+				frappe.logger().warning(f"No valid mapping found for warehouse: {warehouse}{filter_info}")
 			
 			return warehouse
 		except Exception as e:
