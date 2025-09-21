@@ -338,7 +338,7 @@ class DocumentTypeMapping(Document):
 				# Get current document context to access item and doctype information
 				doc_data = getattr(self, 'current_doc_data', {})
 				item_code = doc_data.get('item_code') or doc_data.get('item')
-				doctype = doc_data.get('doctype', self.source_doctype)
+				doctype = doc_data.get('doctype', self.local_doctype)
 				
 				# Determine which field to use based on doctype
 				filter_field = None
