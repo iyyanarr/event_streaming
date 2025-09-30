@@ -1335,3 +1335,212 @@ def submit_draft_purchase_orders():
             "status": "error",
             "message": f"Failed to submit draft Purchase Orders: {str(e)}"
         }
+@frappe.whitelist()
+def validate_document_ids(producer, doctype, document_ids):
+    """Validate document IDs against producer site"""
+    try:
+        if isinstance(document_ids, str):
+            document_ids = json.loads(document_ids)
+        
+        producer_doc = frappe.get_doc("Event Producer", producer)
+        producer_site = get_producer_site(producer_doc)
+        
+        # Validate IDs in batches to avoid timeouts
+        batch_size = 100
+        valid_ids = []
+        invalid_ids = []
+        
+        for i in range(0, len(document_ids), batch_size):
+            batch = document_ids[i:i + batch_size]
+            
+            try:
+                # Check which documents exist on producer
+                existing = producer_site.get_list(doctype,
+                    filters=[["name", "in", batch]],
+                    fields=["name"],
+                    limit_page_length=len(batch)
+                )
+                
+                existing_names = [doc["name"] for doc in existing]
+                valid_ids.extend(existing_names)
+                
+                # Find invalid IDs in this batch
+                batch_invalid = [doc_id for doc_id in batch if doc_id not in existing_names]
+                invalid_ids.extend(batch_invalid)
+                
+            except Exception as e:
+                frappe.logger().error(f"Error validating batch: {str(e)}")
+                continue
+        
+        # Get sample documents (first 5 valid)
+        sample_docs = []
+        if valid_ids:
+            try:
+                sample_ids = valid_ids[:5]
+                for doc_id in sample_ids:
+                    doc = producer_site.get_doc(doctype, doc_id)
+                    sample_docs.append({
+                        "name": doc.get("name"),
+                        "creation": doc.get("creation"),
+                        "modified": doc.get("modified"),
+                        "docstatus": doc.get("docstatus")
+                    })
+            except Exception as e:
+                frappe.logger().error(f"Error getting sample documents: {str(e)}")
+        
+        # Calculate estimated batches (using 50 as default batch size)
+        batch_size = 50
+        estimated_batches = (len(valid_ids) + batch_size - 1) // batch_size
+        
+        validation_result = {
+            "total_count": len(document_ids),
+            "valid_count": len(valid_ids),
+            "invalid_count": len(invalid_ids),
+            "valid_ids": valid_ids,
+            "invalid_ids": invalid_ids,
+            "sample_docs": sample_docs,
+            "estimated_batches": estimated_batches
+        }
+        
+        return {
+            "status": "success",
+            "validation": validation_result
+        }
+        
+    except Exception as e:
+        frappe.log_error(message=frappe.get_traceback(), 
+            title="Validate document IDs failed")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+@frappe.whitelist()
+def start_id_based_migration(producer, doctype, document_ids, batch_size=50):
+    """Start ID-based migration for specific document IDs"""
+    try:
+        if isinstance(document_ids, str):
+            document_ids = json.loads(document_ids)
+        
+        batch_size = int(batch_size)
+        
+        # Create migration job
+        job = frappe.get_doc({
+            "doctype": "Event Migration Job",
+            "producer": producer,
+            "status": "Queued",
+            "migration_type": "ID-Based",
+            "selected_doctypes": json.dumps({
+                "doctypes": [doctype],
+                "document_ids": document_ids,
+                "batch_size": batch_size
+            }),
+            "total_docs": len(document_ids),
+            "processed_docs": 0,
+            "processed_doctypes": json.dumps({
+                doctype: {
+                    "total": len(document_ids),
+                    "processed": 0,
+                    "failed": 0
+                }
+            })
+        }).insert()
+        
+        # Enqueue background job
+        frappe.enqueue(
+            "event_streaming.event_streaming.page.migration_dashboard.migration_dashboard.process_id_based_migration_job",
+            queue="long",
+            timeout=1500,
+            job_args={
+                "job_id": job.name,
+                "producer_name": producer,
+                "doctype": doctype,
+                "document_ids": document_ids,
+                "batch_size": batch_size
+            }
+        )
+        
+        return {
+            "status": "success",
+            "message": _("ID-based migration started successfully"),
+            "job_id": job.name
+        }
+        
+    except Exception as e:
+        frappe.log_error(message=frappe.get_traceback(), 
+            title="Start ID-based migration failed")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+def process_id_based_migration_job(job_args):
+    """Process ID-based migration job - migrate specific documents by ID"""
+    try:
+        job = frappe.get_doc("Event Migration Job", job_args.get("job_id"))
+        producer = frappe.get_doc("Event Producer", job_args.get("producer_name"))
+        producer_site = get_producer_site(producer)
+        
+        doctype = job_args.get("doctype")
+        document_ids = job_args.get("document_ids")
+        batch_size = job_args.get("batch_size", 50)
+        
+        job.db_set("status", "In Progress")
+        job.db_set("start_time", datetime.now())
+        
+        try:
+            processed = json.loads(job.processed_doctypes or "{}")
+            
+            # Process documents in batches
+            for i in range(0, len(document_ids), batch_size):
+                batch = document_ids[i:i + batch_size]
+                
+                frappe.logger().info(f"Processing batch {i//batch_size + 1}: {len(batch)} documents")
+                
+                for doc_id in batch:
+                    try:
+                        # Get full document from producer
+                        doc = producer_site.get_doc(doctype, doc_id)
+                        
+                        # Migrate the document
+                        migrate_single_document(producer, producer_site, doctype, doc)
+                        
+                        # Update progress
+                        processed[doctype]["processed"] += 1
+                        job.db_set("processed_doctypes", json.dumps(processed))
+                        job.db_set("processed_docs", (job.processed_docs or 0) + 1)
+                        
+                        frappe.logger().info(f"✅ Successfully migrated {doctype} {doc_id}")
+                        
+                    except Exception as e:
+                        # Update failure count
+                        processed[doctype]["failed"] += 1
+                        job.db_set("processed_doctypes", json.dumps(processed))
+                        job.db_set("processed_docs", (job.processed_docs or 0) + 1)
+                        
+                        frappe.logger().error(f"❌ Failed to migrate {doctype} {doc_id}: {str(e)}")
+                        continue
+                
+                # Commit after each batch
+                frappe.db.commit()
+            
+            job.db_set("status", "Completed")
+            
+            # Log final summary
+            frappe.logger().info(f"📊 ID-Based Migration Summary for {doctype}:")
+            frappe.logger().info(f"   ✅ Successful: {processed[doctype]['processed']}")
+            frappe.logger().info(f"   ❌ Failed: {processed[doctype]['failed']}")
+            frappe.logger().info(f"   📊 Total: {processed[doctype]['total']}")
+            
+        except Exception as e:
+            job.db_set("status", "Failed")
+            job.db_set("error_log", str(e))
+            frappe.log_error(message=frappe.get_traceback(), 
+                title=f"ID-based migration job {job.name} failed")
+        finally:
+            job.db_set("end_time", datetime.now())
+            
+    except Exception as e:
+        frappe.log_error(message=frappe.get_traceback(), 
+            title=f"ID-based migration job {job_args.get('job_id')} failed")
+        raise

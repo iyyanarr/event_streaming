@@ -147,12 +147,26 @@ class MigrationDashboard {
         // Event Producer selection
         $('#event-producer').on('change', () => {
             this.load_doctypes();
+            this.populate_id_doctype_dropdown();
         });
 
         // Select All doctypes
         $('#select-all-doctypes').on('change', (e) => {
             $('.doctype-checkbox').prop('checked', e.target.checked);
             this.update_available_filter_fields();
+        });
+
+        // ID-based migration handlers
+        $('#json-file-upload').on('change', (e) => {
+            this.handle_json_file_upload(e);
+        });
+
+        $('#btn-validate-ids').on('click', () => {
+            this.validate_json_ids();
+        });
+
+        $('#btn-start-id-migration').on('click', () => {
+            this.start_id_migration();
         });
 
         // Preview button
@@ -1178,5 +1192,377 @@ class MigrationDashboard {
                 });
             }
         );
+    }
+
+    // ============================================
+    // ID-Based Migration Methods
+    // ============================================
+
+    populate_id_doctype_dropdown() {
+        const producer = $('#event-producer').val();
+        const $select = $('#id-doctype');
+        
+        $select.empty().append(`<option value="">${__("Select Document Type")}</option>`);
+        
+        if (!producer) {
+            return;
+        }
+
+        frappe.call({
+            method: 'event_streaming.event_streaming.page.migration_dashboard.migration_dashboard.get_producer_doctypes',
+            args: { producer: producer },
+            callback: (r) => {
+                if (r.message) {
+                    r.message.forEach(dt => {
+                        $select.append(`<option value="${dt.ref_doctype}">${dt.ref_doctype}</option>`);
+                    });
+                }
+            }
+        });
+    }
+
+    handle_json_file_upload(event) {
+        const file = event.target.files[0];
+        
+        if (!file) {
+            return;
+        }
+
+        // Validate file type
+        if (!file.name.endsWith('.json')) {
+            frappe.msgprint({
+                title: __('Invalid File'),
+                message: __('Please upload a JSON file'),
+                indicator: 'red'
+            });
+            $('#json-file-upload').val('');
+            return;
+        }
+
+        // Read and parse JSON file
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const content = e.target.result;
+                const data = JSON.parse(content);
+                
+                // Validate that it's an array
+                if (!Array.isArray(data)) {
+                    frappe.msgprint({
+                        title: __('Invalid JSON Format'),
+                        message: __('JSON file must contain an array of document IDs. Example: ["PO-001", "PO-002"]'),
+                        indicator: 'red'
+                    });
+                    $('#json-file-upload').val('');
+                    return;
+                }
+
+                // Store the IDs
+                this.json_document_ids = data;
+                
+                frappe.show_alert({
+                    message: __('JSON file loaded: {0} IDs found', [data.length]),
+                    indicator: 'green'
+                });
+
+                // Reset validation results
+                $('#id-validation-results').addClass('hidden');
+                $('#btn-start-id-migration').prop('disabled', true);
+
+            } catch (error) {
+                frappe.msgprint({
+                    title: __('JSON Parse Error'),
+                    message: __('Failed to parse JSON file: {0}', [error.message]),
+                    indicator: 'red'
+                });
+                $('#json-file-upload').val('');
+            }
+        };
+
+        reader.onerror = () => {
+            frappe.msgprint({
+                title: __('File Read Error'),
+                message: __('Failed to read the file'),
+                indicator: 'red'
+            });
+            $('#json-file-upload').val('');
+        };
+
+        reader.readAsText(file);
+    }
+
+    validate_json_ids() {
+        const producer = $('#event-producer').val();
+        const doctype = $('#id-doctype').val();
+        const document_ids = this.json_document_ids;
+
+        // Validation
+        if (!producer) {
+            frappe.msgprint(__('Please select an Event Producer'));
+            return;
+        }
+
+        if (!doctype) {
+            frappe.msgprint(__('Please select a Document Type'));
+            return;
+        }
+
+        if (!document_ids || document_ids.length === 0) {
+            frappe.msgprint(__('Please upload a JSON file with document IDs'));
+            return;
+        }
+
+        // Show loading state
+        const $results = $('#id-validation-results').removeClass('hidden');
+        $results.html(`
+            <div class="alert alert-info">
+                <i class="fa fa-spinner fa-spin"></i> Validating ${document_ids.length} document IDs...
+            </div>
+        `);
+
+        // Call backend to validate IDs
+        frappe.call({
+            method: 'event_streaming.event_streaming.page.migration_dashboard.migration_dashboard.validate_document_ids',
+            args: {
+                producer: producer,
+                doctype: doctype,
+                document_ids: document_ids
+            },
+            callback: (r) => {
+                if (r.message && r.message.status === 'success') {
+                    this.render_validation_results(r.message.validation);
+                    $('#btn-start-id-migration').prop('disabled', false);
+                } else {
+                    $results.html(`
+                        <div class="alert alert-danger">
+                            <i class="fa fa-times"></i> ${r.message.message || __('Validation failed')}
+                        </div>
+                    `);
+                }
+            },
+            error: (err) => {
+                $results.html(`
+                    <div class="alert alert-danger">
+                        <i class="fa fa-times"></i> ${err.message || __('Validation failed')}
+                    </div>
+                `);
+            }
+        });
+    }
+
+    render_validation_results(validation) {
+        const $results = $('#id-validation-results');
+        
+        let html = `
+            <div class="alert alert-success">
+                <i class="fa fa-check-circle"></i> <strong>${__('Validation Complete')}</strong>
+            </div>
+            
+            <div class="validation-summary">
+                <div class="validation-card success">
+                    <div class="value">${validation.valid_count}</div>
+                    <div class="label">${__('Valid IDs')}</div>
+                </div>
+                <div class="validation-card error">
+                    <div class="value">${validation.invalid_count}</div>
+                    <div class="label">${__('Invalid IDs')}</div>
+                </div>
+                <div class="validation-card">
+                    <div class="value">${validation.total_count}</div>
+                    <div class="label">${__('Total IDs')}</div>
+                </div>
+                <div class="validation-card">
+                    <div class="value">${validation.estimated_batches}</div>
+                    <div class="label">${__('Batches')}</div>
+                </div>
+            </div>
+        `;
+
+        if (validation.invalid_ids && validation.invalid_ids.length > 0) {
+            html += `
+                <div class="alert alert-warning" style="margin-top: 15px;">
+                    <strong>${__('Invalid IDs (not found on producer):')}</strong>
+                    <ul style="margin-top: 10px; max-height: 150px; overflow-y: auto;">
+                        ${validation.invalid_ids.slice(0, 20).map(id => `<li>${id}</li>`).join('')}
+                        ${validation.invalid_ids.length > 20 ? `<li><em>... and ${validation.invalid_ids.length - 20} more</em></li>` : ''}
+                    </ul>
+                </div>
+            `;
+        }
+
+        if (validation.sample_docs && validation.sample_docs.length > 0) {
+            html += `
+                <div style="margin-top: 15px;">
+                    <h6>${__('Sample Documents:')}</h6>
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>${__('ID')}</th>
+                                <th>${__('Created')}</th>
+                                <th>${__('Modified')}</th>
+                                <th>${__('Status')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${validation.sample_docs.map(doc => `
+                                <tr>
+                                    <td>${doc.name}</td>
+                                    <td>${doc.creation || '-'}</td>
+                                    <td>${doc.modified || '-'}</td>
+                                    <td>${doc.docstatus == 0 ? 'Draft' : doc.docstatus == 1 ? 'Submitted' : 'Cancelled'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        $results.html(html);
+    }
+
+    start_id_migration() {
+        const producer = $('#event-producer').val();
+        const doctype = $('#id-doctype').val();
+        const document_ids = this.json_document_ids;
+        const batch_size = parseInt($('#id-batch-size').val()) || 50;
+
+        if (!producer || !doctype || !document_ids || document_ids.length === 0) {
+            frappe.msgprint(__('Please validate the IDs first'));
+            return;
+        }
+
+        frappe.confirm(
+            __('Are you sure you want to migrate {0} documents of type {1}? This will process them in batches of {2}.', 
+                [document_ids.length, doctype, batch_size]),
+            () => {
+                // Show progress section
+                $('#id-migration-progress').removeClass('hidden');
+                const $stats = $('.id-migration-stats');
+                
+                $stats.html(`
+                    <div class="alert alert-info">
+                        <i class="fa fa-spinner fa-spin"></i> Starting ID-based migration...
+                    </div>
+                `);
+
+                // Call backend to start migration
+                frappe.call({
+                    method: 'event_streaming.event_streaming.page.migration_dashboard.migration_dashboard.start_id_based_migration',
+                    args: {
+                        producer: producer,
+                        doctype: doctype,
+                        document_ids: document_ids,
+                        batch_size: batch_size
+                    },
+                    callback: (r) => {
+                        if (r.message && r.message.status === 'success') {
+                            this.setup_id_migration_tracking(r.message.job_id);
+                            frappe.show_alert({
+                                message: __('ID-based migration started successfully'),
+                                indicator: 'green'
+                            });
+                        } else {
+                            $stats.html(`
+                                <div class="alert alert-danger">
+                                    <i class="fa fa-times"></i> ${r.message.message || __('Failed to start migration')}
+                                </div>
+                            `);
+                        }
+                    },
+                    error: (err) => {
+                        $stats.html(`
+                            <div class="alert alert-danger">
+                                <i class="fa fa-times"></i> ${err.message || __('Failed to start migration')}
+                            </div>
+                        `);
+                    }
+                });
+            }
+        );
+    }
+
+    setup_id_migration_tracking(job_id) {
+        const $stats = $('.id-migration-stats');
+        
+        this.id_migration_interval = setInterval(() => {
+            frappe.call({
+                method: 'event_streaming.event_streaming.page.migration_dashboard.migration_dashboard.get_migration_job_progress',
+                args: {
+                    job_name: job_id
+                },
+                callback: (r) => {
+                    if (r.message) {
+                        const progress = r.message;
+                        this.update_id_migration_ui(progress);
+
+                        // Stop tracking if job is complete or failed
+                        if (progress.status === 'Completed' || progress.status === 'Failed') {
+                            clearInterval(this.id_migration_interval);
+                        }
+                    }
+                }
+            });
+        }, 3000); // Update every 3 seconds
+    }
+
+    update_id_migration_ui(progress) {
+        const $stats = $('.id-migration-stats');
+        const start_time = progress.start_time ? frappe.datetime.str_to_user(progress.start_time) : '';
+        const end_time = progress.end_time ? frappe.datetime.str_to_user(progress.end_time) : '';
+        
+        const processed = progress.processed_docs || 0;
+        const total = progress.total_docs || 0;
+        const percent = total ? Math.round((processed / total) * 100) : 0;
+        
+        let status_color = 'info';
+        if (progress.status === 'Completed') status_color = 'success';
+        if (progress.status === 'Failed') status_color = 'danger';
+        
+        let html = `
+            <div class="alert alert-${status_color}">
+                <h6><strong>${__('Status')}:</strong> ${progress.status || ''}</h6>
+                <p><strong>${__('Progress')}:</strong> ${processed} / ${total} documents (${percent}%)</p>
+                <div class="progress" style="height: 25px; margin-top: 10px;">
+                    <div class="progress-bar progress-bar-striped ${progress.status === 'In Progress' ? 'active' : ''}" 
+                         role="progressbar" 
+                         style="width: ${percent}%;"
+                         aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100">
+                        ${percent}%
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row" style="margin-top: 15px;">
+                <div class="col-md-6">
+                    <p><strong>${__('Start Time')}:</strong> ${start_time}</p>
+                </div>
+                <div class="col-md-6">
+                    ${end_time ? `<p><strong>${__('End Time')}:</strong> ${end_time}</p>` : ''}
+                </div>
+            </div>
+        `;
+
+        if (progress.processed_by_doctype) {
+            const doctype_data = Object.values(progress.processed_by_doctype)[0] || {};
+            if (doctype_data.failed && doctype_data.failed > 0) {
+                html += `
+                    <div class="alert alert-warning" style="margin-top: 15px;">
+                        <strong>${__('Failed Documents')}:</strong> ${doctype_data.failed}
+                    </div>
+                `;
+            }
+        }
+
+        if (progress.error) {
+            html += `
+                <div class="alert alert-danger" style="margin-top: 15px;">
+                    <h6>${__('Error')}</h6>
+                    <pre style="max-height: 200px; overflow-y: auto;">${progress.error}</pre>
+                </div>
+            `;
+        }
+
+        $stats.html(html);
     }
 }

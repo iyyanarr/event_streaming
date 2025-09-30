@@ -22,6 +22,53 @@
         <div id="doctype-list"></div>
     </div>
 
+    <!-- ID-Based Migration Section -->
+    <div class="section-id-migration">
+        <h5>2B. Migrate Specific Documents by ID</h5>
+        <p class="text-muted">Upload a JSON file with document IDs to migrate specific records in batches</p>
+        
+        <div class="id-migration-controls">
+            <div class="form-group">
+                <label>Document Type</label>
+                <select id="id-doctype" class="form-control">
+                    <option value="">Select Document Type</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Upload JSON File</label>
+                <input type="file" id="json-file-upload" class="form-control" accept=".json">
+                <small class="text-muted">
+                    Upload a JSON file containing an array of document IDs. Example: ["PO-001", "PO-002", "PO-003"]
+                </small>
+            </div>
+            
+            <div class="form-group">
+                <label>Batch Size</label>
+                <input type="number" id="id-batch-size" class="form-control" value="50" min="1" max="500">
+                <small class="text-muted">Number of documents to process per batch (recommended: 50-100)</small>
+            </div>
+            
+            <div class="id-actions">
+                <button id="btn-validate-ids" class="btn btn-default">
+                    <i class="fa fa-check-circle"></i> Validate IDs
+                </button>
+                <button id="btn-start-id-migration" class="btn btn-primary" disabled>
+                    <i class="fa fa-play"></i> Start ID Migration
+                </button>
+            </div>
+        </div>
+        
+        <!-- ID Validation Results -->
+        <div id="id-validation-results" class="hidden"></div>
+        
+        <!-- ID Migration Progress -->
+        <div id="id-migration-progress" class="hidden">
+            <h6>Migration Progress</h6>
+            <div class="id-migration-stats"></div>
+        </div>
+    </div>
+
     <!-- Date Range -->
     <div class="section-date-range">
         <h5>3. Set Date Range</h5>
@@ -137,6 +184,7 @@
 
 .section-producer,
 .section-doctypes,
+.section-id-migration,
 .section-date-range,
 .section-advanced-filters,
 .section-actions {
@@ -149,6 +197,7 @@
 
 .section-producer h5,
 .section-doctypes h5,
+.section-id-migration h5,
 .section-date-range h5,
 .section-advanced-filters h5,
 .section-actions h5 {
@@ -318,5 +367,78 @@
     color: var(--text-muted);
     font-size: 0.9em;
     margin-bottom: 10px;
+}
+
+/* ID-Based Migration Styling */
+.section-id-migration {
+    background: #f0f8ff;
+    border-left: 4px solid #2196F3;
+}
+
+.id-migration-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.id-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+#id-validation-results:not(.hidden) {
+    margin-top: 15px;
+    padding: 15px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
+
+#id-migration-progress:not(.hidden) {
+    margin-top: 20px;
+    padding: 15px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
+
+.id-migration-stats {
+    margin-top: 10px;
+}
+
+.validation-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.validation-card {
+    padding: 15px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    text-align: center;
+}
+
+.validation-card .value {
+    font-size: 2em;
+    font-weight: bold;
+    color: #1976D2;
+}
+
+.validation-card .label {
+    font-size: 0.9em;
+    color: #666;
+    margin-top: 5px;
+}
+
+.validation-card.error .value {
+    color: #f44336;
+}
+
+.validation-card.success .value {
+    color: #4CAF50;
 }
 </style>
