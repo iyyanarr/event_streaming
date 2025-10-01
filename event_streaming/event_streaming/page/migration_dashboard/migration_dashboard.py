@@ -752,7 +752,7 @@ def process_doctype_migration(job, producer, producer_site, doctype):
             
             # Process using the filtered document names
             processed = json.loads(job.processed_doctypes or "{}")
-            processed[doctype] = {"total": total_count, "processed": 0, "failed": 0}
+            processed[doctype] = {"total": total_count, "processed": 0, "failed": 0, "failed_ids": []}
             job.db_set("processed_doctypes", json.dumps(processed))
             
             # Process documents by name
@@ -772,8 +772,11 @@ def process_doctype_migration(job, producer, producer_site, doctype):
                     frappe.logger().info(f"✅ Successfully processed {doctype} {doc_name}")
                     
                 except Exception as e:
-                    # Update FAILURE progress
+                    # Update FAILURE progress and capture failed ID
                     processed[doctype]["failed"] += 1
+                    if "failed_ids" not in processed[doctype]:
+                        processed[doctype]["failed_ids"] = []
+                    processed[doctype]["failed_ids"].append(doc_name)
                     job.db_set("processed_doctypes", json.dumps(processed))
                     job.db_set("processed_docs", (job.processed_docs or 0) + 1)
                     
@@ -805,7 +808,7 @@ def process_doctype_migration(job, producer, producer_site, doctype):
                 frappe.logger().info(f"Found {total_count} Purchase Orders to migrate")
                 
             processed = json.loads(job.processed_doctypes or "{}")
-            processed[doctype] = {"total": total_count, "processed": 0, "failed": 0}
+            processed[doctype] = {"total": total_count, "processed": 0, "failed": 0, "failed_ids": []}
             job.db_set("processed_doctypes", json.dumps(processed))
             
             # Process in batches
@@ -838,8 +841,11 @@ def process_doctype_migration(job, producer, producer_site, doctype):
                             frappe.logger().info(f"✅ Successfully processed Purchase Order {doc_name}")
                             
                     except Exception as e:
-                        # Update FAILURE progress - IMPORTANT: Still count as processed
+                        # Update FAILURE progress and capture failed ID
                         processed[doctype]["failed"] += 1
+                        if "failed_ids" not in processed[doctype]:
+                            processed[doctype]["failed_ids"] = []
+                        processed[doctype]["failed_ids"].append(doc_name)
                         job.db_set("processed_doctypes", json.dumps(processed))
                         job.db_set("processed_docs", (job.processed_docs or 0) + 1)
                         
@@ -1441,7 +1447,8 @@ def start_id_based_migration(producer, doctype, document_ids, batch_size=50):
                 doctype: {
                     "total": len(document_ids),
                     "processed": 0,
-                    "failed": 0
+                    "failed": 0,
+                    "failed_ids": []
                 }
             })
         }).insert()
@@ -1513,8 +1520,11 @@ def process_id_based_migration_job(job_args):
                         frappe.logger().info(f"✅ Successfully migrated {doctype} {doc_id}")
                         
                     except Exception as e:
-                        # Update failure count
+                        # Update failure count and capture failed ID
                         processed[doctype]["failed"] += 1
+                        if "failed_ids" not in processed[doctype]:
+                            processed[doctype]["failed_ids"] = []
+                        processed[doctype]["failed_ids"].append(doc_id)
                         job.db_set("processed_doctypes", json.dumps(processed))
                         job.db_set("processed_docs", (job.processed_docs or 0) + 1)
                         

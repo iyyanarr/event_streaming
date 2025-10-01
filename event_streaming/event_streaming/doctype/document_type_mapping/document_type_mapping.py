@@ -100,8 +100,10 @@ class DocumentTypeMapping(Document):
 						# Get child table mapping to know which fields to map
 						child_mapping = self.get_child_table_mapping(table_field)
 						if child_mapping:
-							# Set document context for child mapping too
-							child_mapping.current_doc_data = doc
+							# FIXED: Set row context as primary, parent as secondary
+							# This allows warehouse mapping to access row-level item_code for item_group lookup
+							child_mapping.current_doc_data = row  # Row context for field values (item_code, etc.)
+							child_mapping.parent_doc_data = doc   # Parent context for doctype, operations, etc.
 							child_mapped_fields = [fm.local_fieldname for fm in child_mapping.field_mapping]
 							for child_field in child_mapped_fields:
 								if row.get(child_field):
@@ -336,22 +338,28 @@ class DocumentTypeMapping(Document):
 			
 			if mapping_doc:
 				# Get current document context to access item and doctype information
+				# FIXED: Check row context first (for item_code), then parent context (for doctype)
 				doc_data = getattr(self, 'current_doc_data', {})
+				parent_data = getattr(self, 'parent_doc_data', {})
+				
+				# Get item_code from row context (child table row has item_code)
 				item_code = doc_data.get('item_code') or doc_data.get('item')
-				doctype = doc_data.get('doctype', self.local_doctype)
+				
+				# Get doctype from parent context (Stock Entry, Work Order, BOM)
+				doctype = parent_data.get('doctype') if parent_data else doc_data.get('doctype', self.local_doctype)
 				
 				# Determine which field to use based on doctype
 				filter_field = None
 				filter_value = None
 				
 				if doctype == "Stock Entry":
-					# For Stock Entry, use item_group
+					# For Stock Entry, use item_group from the item
 					if item_code:
 						filter_value = frappe.db.get_value("Item", item_code, "item_group")
 						filter_field = "item_group"
 				elif doctype in ["Work Order", "BOM"]:
-					# For Work Order/BOM, use operations from the document
-					operations = doc_data.get('operations') or doc_data.get('operation')
+					# For Work Order/BOM, use operations from the parent document
+					operations = parent_data.get('operations') if parent_data else doc_data.get('operations') or doc_data.get('operation')
 					if operations:
 						filter_value = operations
 						filter_field = "operations"
