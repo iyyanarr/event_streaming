@@ -935,40 +935,53 @@ def migrate_single_document(producer, producer_site, doctype, doc):
                 # For new documents, sanitize and insert with name handling based on configuration
                 clean_doc = sanitize_doc_for_insert(full_doc)
                 
-                if use_same_name:
-                    # CRITICAL: Preserve the original document name from producer
-                    clean_doc['name'] = doc_name
-                
-                # Set docstatus to draft
-                clean_doc['docstatus'] = 0
-                
-                # Don't clear status field for Purchase Orders as it's mandatory for submission
-                # Clear only workflow/state fields that could cause conflicts
-                for field in ('workflow_state', 'cancelled'):
-                    if field in clean_doc:
-                        clean_doc.pop(field, None)
-                
                 try:
-                    # Use frappe.get_doc with name preservation
-                    doc_to_insert = frappe.get_doc(clean_doc)
-                    
-                    # Set flags to bypass validations during migration        
-                    doc_to_insert.flags.ignore_validate = True
-                    doc_to_insert.flags.ignore_mandatory = True
-                    doc_to_insert.flags.ignore_links = True
-                    doc_to_insert.flags.ignore_permissions = True
-                    doc_to_insert.flags.ignore_if_duplicate = True
-                    doc_to_insert.flags.from_migration = True
-                    
                     if use_same_name:
-                        # Insert parent document with preserved name using db_insert
+                        # CRITICAL: Preserve the original document name from producer
+                        clean_doc['name'] = doc_name
+                        
+                        # FIXED: Extract and clear child tables to prevent duplication
+                        # db_insert() inserts child tables automatically, so we need to clear them first
+                        # and then insert them separately using insert_child_table_records()
+                        child_table_data = {}
+                        meta = frappe.get_meta(doctype)
+                        for field in meta.get_table_fields():
+                            if field.fieldname in clean_doc:
+                                # Save child table data
+                                child_table_data[field.fieldname] = clean_doc[field.fieldname]
+                                # Clear from document to prevent db_insert from inserting them
+                                clean_doc[field.fieldname] = []
+                        
+                        # Create document with empty child tables
+                        doc_to_insert = frappe.get_doc(clean_doc)
+                        
+                        # Set flags to bypass validations during migration        
+                        doc_to_insert.flags.ignore_validate = True
+                        doc_to_insert.flags.ignore_mandatory = True
+                        doc_to_insert.flags.ignore_links = True
+                        doc_to_insert.flags.ignore_permissions = True
+                        doc_to_insert.flags.ignore_if_duplicate = True
+                        doc_to_insert.flags.from_migration = True
+                        
+                        # Insert parent document only (child tables are empty)
                         doc_to_insert.db_insert()
                         
-                        # Now manually insert child table records
-                        insert_child_table_records(doctype, doc_name, clean_doc)
+                        # Now insert child table records separately
+                        insert_child_table_records(doctype, doc_name, {'name': doc_name, **child_table_data})
                         
                         frappe.logger().info(f"Successfully inserted {doctype} {doc_name} with preserved name and child tables")
                     else:
+                        # Use frappe.get_doc with name preservation
+                        doc_to_insert = frappe.get_doc(clean_doc)
+                        
+                        # Set flags to bypass validations during migration        
+                        doc_to_insert.flags.ignore_validate = True
+                        doc_to_insert.flags.ignore_mandatory = True
+                        doc_to_insert.flags.ignore_links = True
+                        doc_to_insert.flags.ignore_permissions = True
+                        doc_to_insert.flags.ignore_if_duplicate = True
+                        doc_to_insert.flags.from_migration = True
+                        
                         # Store the remote docname in custom fields and let Frappe generate new name
                         doc_to_insert.remote_docname = doc_name
                         doc_to_insert.remote_site_name = producer.name
