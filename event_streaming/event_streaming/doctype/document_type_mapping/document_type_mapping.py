@@ -89,9 +89,6 @@ class DocumentTypeMapping(Document):
 		# Apply mappings only to fields that are in the Document Type Mapping configuration
 		for field_name in mapped_fields:
 			if doc.get(field_name):
-				# Skip parent-level warehouse fields - they will be set based on child rows
-				if field_name in ['from_warehouse', 'to_warehouse'] and not doc.get('parenttype'):
-					continue
 				doc[field_name] = self.get_mapped_value(field_name, doc[field_name])
 		
 		# Apply to child tables that are mapped
@@ -103,7 +100,7 @@ class DocumentTypeMapping(Document):
 						# Get child table mapping to know which fields to map
 						child_mapping = self.get_child_table_mapping(table_field)
 						if child_mapping:
-								# Set row context as primary, parent as secondary
+							# Set row context as primary, parent as secondary
 							child_mapping.current_doc_data = row
 							child_mapping.parent_doc_data = doc
 							child_mapped_fields = [fm.local_fieldname for fm in child_mapping.field_mapping]
@@ -111,44 +108,7 @@ class DocumentTypeMapping(Document):
 								if row.get(child_field):
 									row[child_field] = child_mapping.get_mapped_value(child_field, row[child_field])
 		
-		# FIXED: Map parent-level warehouses based on child table row warehouses
-		if doc.get('doctype') == 'Stock Entry' and doc.get('items'):
-			doc = self.map_parent_warehouses_from_child_rows(doc)
-		
 		return doc
-	
-	def map_parent_warehouses_from_child_rows(self, doc):
-		"""Map parent from_warehouse and to_warehouse based on child table row warehouses"""
-		try:
-			source_warehouses = set()
-			target_warehouses = set()
-			
-			for row in doc.get('items', []):
-				if isinstance(row, dict):
-					if row.get('s_warehouse'):
-						source_warehouses.add(row['s_warehouse'])
-					if row.get('t_warehouse'):
-						target_warehouses.add(row['t_warehouse'])
-			
-			# Set parent from_warehouse based on child s_warehouse values
-			if len(source_warehouses) == 1:
-				doc['from_warehouse'] = list(source_warehouses)[0]
-			elif len(source_warehouses) > 1:
-				# Multiple source warehouses - use first one
-				doc['from_warehouse'] = list(source_warehouses)[0]
-			
-			# Set parent to_warehouse based on child t_warehouse values
-			if len(target_warehouses) == 1:
-				doc['to_warehouse'] = list(target_warehouses)[0]
-			elif len(target_warehouses) > 1:
-				# Multiple target warehouses - use first one
-				doc['to_warehouse'] = list(target_warehouses)[0]
-			
-			return doc
-			
-		except Exception as e:
-			frappe.logger().error(f"Error mapping parent warehouses: {str(e)}")
-			return doc
 
 	def get_child_table_mapping(self, table_field):
 		"""Get the Document Type Mapping for a child table"""
