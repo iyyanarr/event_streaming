@@ -353,10 +353,17 @@ class DocumentTypeMapping(Document):
 				filter_value = None
 				
 				if doctype == "Stock Entry":
-					# For Stock Entry, use item_group from the item
+					# For Stock Entry, use item_group from row data FIRST, then fall back to Item master
 					if item_code:
-						filter_value = frappe.db.get_value("Item", item_code, "item_group")
+						# FIXED: Check row data first before database lookup
+						filter_value = doc_data.get('item_group')  # Get from row data
+						if not filter_value:
+							# Fall back to database lookup only if not in row data
+							filter_value = frappe.db.get_value("Item", item_code, "item_group")
 						filter_field = "item_group"
+						
+						# Log for debugging
+						frappe.logger().info(f"Warehouse mapping context: item_code={item_code}, item_group={filter_value}, warehouse={warehouse}")
 				elif doctype in ["Work Order", "BOM"]:
 					# For Work Order/BOM, use operations from the parent document
 					operations = parent_data.get('operations') if parent_data else doc_data.get('operations') or doc_data.get('operation')
@@ -401,6 +408,7 @@ class DocumentTypeMapping(Document):
 							filter_values_list = [val.strip() for val in mapping_filter_value.split(",") if val.strip()]
 							if filter_value in filter_values_list:
 								specific_mappings.append(mapping)
+								frappe.logger().info(f"Found specific mapping for {warehouse} with {filter_field}={filter_value}: {mapping.get('consumer_warehouse')}")
 					else:
 						# No filter field/value - treat all as general mappings
 						general_mappings.append(mapping)
