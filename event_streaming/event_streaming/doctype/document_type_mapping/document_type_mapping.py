@@ -51,7 +51,7 @@ class DocumentTypeMapping(Document):
 
 				if mapping.mapping_type == "Child Table" and update_type != "Update":
 					doc[mapping.local_fieldname] = get_mapped_child_table_docs(
-						mapping.mapping, doc[mapping.remote_fieldname], producer_site
+						mapping.mapping, doc[mapping.remote_fieldname], producer_site, parent_doc=doc
 					)
 				else:
 					# copy value into local fieldname key and remove remote fieldname key
@@ -87,8 +87,13 @@ class DocumentTypeMapping(Document):
 		mapped_fields = [fm.local_fieldname for fm in self.field_mapping]
 		
 		# Apply mappings only to fields that are in the Document Type Mapping configuration
+		# EXCLUDE parent-level warehouse fields (from_warehouse, to_warehouse) since they don't have item group context
 		for field_name in mapped_fields:
 			if doc.get(field_name):
+				# Skip parent-level warehouse fields - they will be handled at child table level
+				if field_name in ['from_warehouse', 'to_warehouse'] and not doc.get('parenttype'):
+					# This is a parent document, skip warehouse mapping
+					continue
 				doc[field_name] = self.get_mapped_value(field_name, doc[field_name])
 		
 		# Apply to child tables that are mapped
@@ -735,7 +740,7 @@ class DocumentTypeMapping(Document):
 		return mapping
 
 
-def get_mapped_child_table_docs(child_map, table_entries, producer_site):
+def get_mapped_child_table_docs(child_map, table_entries, producer_site, parent_doc=None):
 	"""Get mapping for child doctypes"""
 	child_map = frappe.get_doc("Document Type Mapping", child_map)
 	mapped_entries = []
@@ -750,7 +755,7 @@ def get_mapped_child_table_docs(child_map, table_entries, producer_site):
 		table_entries = [table_entries]
 	
 	for child_doc in table_entries:
-			# Skip None values immediately
+		# Skip None values immediately
 		if child_doc is None:
 			frappe.logger().warning("Skipping None child table entry")
 			continue
@@ -779,6 +784,11 @@ def get_mapped_child_table_docs(child_map, table_entries, producer_site):
 				if mapping.local_fieldname != mapping.remote_fieldname:
 					doc_remote_fields.append(mapping.remote_fieldname)
 
+		# FIXED: Set parent context before applying value mappings
+		child_map.current_doc_data = child_doc
+		if parent_doc:
+			child_map.parent_doc_data = parent_doc
+		
 		# Apply value mappings to child documents as well
 		child_doc = child_map.apply_value_mappings(child_doc)
 
