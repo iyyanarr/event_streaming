@@ -146,7 +146,7 @@ class EventProducer(Document):
 						read_only=1,
 						print_hide=1,
 					)
-					create_custom_field(entry.ref_doctype, df)
+					create_custom_field(entry.ref_doctype, df, ignore_validate=True)
 				if not frappe.db.exists(
 					"Custom Field", {"fieldname": "remote_site_name", "dt": entry.ref_doctype}
 				):
@@ -157,7 +157,7 @@ class EventProducer(Document):
 						read_only=1,
 						print_hide=1,
 					)
-					create_custom_field(entry.ref_doctype, df)
+					create_custom_field(entry.ref_doctype, df, ignore_validate=True)
 
 	def update_event_consumer(self):
 		if self.is_producer_online():
