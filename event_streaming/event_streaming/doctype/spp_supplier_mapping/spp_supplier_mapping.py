@@ -106,6 +106,7 @@ class SPPSupplierMapping(Document):
 		if added == 0:
 			frappe.throw(_('No valid supplier mappings found in CSV. Please check the format and column headers.'))
 		
+		self.flags.ignore_links = True
 		self.save()
 		msg = _("Successfully imported {0} supplier mappings").format(added)
 		frappe.msgprint(msg)

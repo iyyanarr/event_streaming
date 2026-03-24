@@ -105,6 +105,7 @@ class SPPAccountMapping(Document):
 						})
 						imported += 1
 						
+			self.flags.ignore_links = True
 			self.save()
 			frappe.db.commit()
 			

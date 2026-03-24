@@ -82,6 +82,7 @@ class SPPCostCenterMapping(Document):
 						})
 						imported += 1
 						
+			self.flags.ignore_links = True
 			self.save()
 			frappe.db.commit()
 			return {"message": _("Successfully imported {0} cost center mappings").format(imported), "count": imported}

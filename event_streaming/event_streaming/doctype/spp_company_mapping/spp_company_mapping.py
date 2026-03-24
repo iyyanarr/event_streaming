@@ -77,6 +77,7 @@ class SPPCompanyMapping(Document):
 						})
 						imported += 1
 						
+			self.flags.ignore_links = True
 			self.save()
 			frappe.db.commit()
 			return {"message": _("Successfully imported {0} company mappings").format(imported), "count": imported}

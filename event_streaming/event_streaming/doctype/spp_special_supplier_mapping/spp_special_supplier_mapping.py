@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
+from frappe import _
 from frappe.model.document import Document
 
 
@@ -111,6 +112,7 @@ class SPPSpecialSupplierMapping(Document):
 						})
 						imported += 1
 						
+			self.flags.ignore_links = True
 			self.save()
 			frappe.db.commit()
 			return {"message": _("Successfully imported {0} special mappings").format(imported), "count": imported}

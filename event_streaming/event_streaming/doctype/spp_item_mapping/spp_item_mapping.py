@@ -89,6 +89,7 @@ class SPPItemMapping(Document):
 							'notes': (row.get('notes') or '').strip() or None
 						})
 						imported += 1
+			self.flags.ignore_links = True
 			self.save()
 			frappe.db.commit()
 			# Log for diagnostics

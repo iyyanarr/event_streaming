@@ -171,6 +171,7 @@ class SPPWarehouseMapping(Document):
 				existing.add(key)
 				added += 1
 
+		self.flags.ignore_links = True
 		self.save()
 
 		msg_parts = [_("Imported {0} warehouse mappings").format(added)]
