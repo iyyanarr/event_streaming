@@ -3,106 +3,124 @@
 
 frappe.ui.form.on('SPP Special Supplier Mapping', {
 	refresh: function(frm) {
-		// Custom refresh logic can be added here
-		if (frm.doc.is_active) {
-			frm.page.set_indicator(__('Active'), 'green');
-		} else {
-			frm.page.set_indicator(__('Inactive'), 'red');
-		}
+		// Add custom buttons
+		frm.add_custom_button(__('Import from CSV'), function() {
+			import_csv_mapping(frm);
+		}, __('Actions'));
 		
-		// Add debug button for address-supplier mapping
-		if (!frm.doc.__islocal) {
-			frm.add_custom_button(__('Debug Address Mapping'), function() {
-				debug_address_supplier_mapping(frm);
-			}, __('Tools'));
+		frm.add_custom_button(__('Test Mapping'), function() {
+			test_special_mapping(frm);
+		}, __('Actions'));
+		
+		frm.add_custom_button(__('Export to CSV'), function() {
+			export_csv_mapping(frm);
+		}, __('Actions'));
+		
+		// Set indicator formatter for active status
+		frm.set_indicator_formatter('is_active', function(doc) {
+			return doc.is_active ? 'green' : 'red';
+		});
+		
+		// Add mapping statistics
+		if (frm.doc.special_mappings && frm.doc.special_mappings.length) {
+			let active_count = frm.doc.special_mappings.filter(sup => sup.is_active).length;
+			let total_count = frm.doc.special_mappings.length;
+			
+			frm.dashboard.add_indicator(__('Active Mappings: {0} / {1}', [active_count, total_count]), 
+				active_count === total_count ? 'green' : 'orange');
 		}
-	},
 
-	validate: function(frm) {
-		// Additional client-side validation can be added here
+		// Keep existing specialized buttons if any, or provide one for processing debugging
+		frm.add_custom_button(__('Process Log (Debug)'), function() {
+			frappe.msgprint(__('Special Supplier Mapping logic is based on Mapping Type (Direct/Address Based/Custom). Use "Test Mapping" to verify entries.'));
+		}, __('Debug'));
 	}
 });
 
-frappe.ui.form.on('SPP Special Supplier Mapping Detail', {
-	mapping_type: function(frm, cdt, cdn) {
-		let row = locals[cdt][cdn];
-		
-		// Clear dependent fields when mapping type changes
-		if (row.mapping_type === 'Address Based') {
-			frappe.model.set_value(cdt, cdn, 'consumer_supplier', '');
-		} else if (row.mapping_type === 'Direct' || row.mapping_type === 'Custom') {
-			frappe.model.set_value(cdt, cdn, 'address_field', '');
-		}
-	},
-
-	producer_supplier: function(frm, cdt, cdn) {
-		// Can add validation or auto-suggestions for producer suppliers
+function import_csv_mapping(frm) {
+	if (frm.is_new()) {
+		frappe.msgprint(__('Please save this SPP Special Supplier Mapping before importing a CSV.'));
+		return;
 	}
-});
-
-function debug_address_supplier_mapping(frm) {
 	new frappe.ui.Dialog({
-		title: __('Debug Address-Supplier Mapping'),
+		title: __('Import Special Mappings from CSV'),
+		fields: [
+			{
+				fieldtype: 'Attach',
+				fieldname: 'csv_file',
+				label: __('CSV File'),
+				reqd: 1,
+				description: __('Accepted headers: producer_supplier, consumer_supplier, mapping_type')
+			}
+		],
+		primary_action_label: __('Import'),
+		primary_action: function(values) {
+			if (!values.csv_file) {
+				frappe.msgprint(__('Please attach a CSV file'));
+				return;
+			}
+			frm.call('import_csv_mapping', { csv_file_url: values.csv_file }).then((r) => {
+				frm.reload_doc().then(() => {
+					frm.refresh_field('special_mappings');
+					let info = r.message || {};
+					frappe.show_alert({
+						message: __('Imported {0} mappings', [info.count || 0]),
+						indicator: 'green'
+					});
+				});
+			}).catch(e => {
+				frappe.msgprint({
+					title: __('Import Failed'),
+					message: e.message || __('Unknown error during import'),
+					indicator: 'red'
+				});
+			});
+			this.hide();
+		}
+	}).show();
+}
+
+function test_special_mapping(frm) {
+	new frappe.ui.Dialog({
+		title: __('Test Special Supplier Mapping'),
 		fields: [
 			{
 				fieldtype: 'Data',
-				fieldname: 'address_name',
-				label: __('Address Name'),
-				reqd: 1,
-				description: __('Enter the mapped address name to debug')
+				fieldname: 'producer_supplier',
+				label: __('Producer Supplier'),
+				reqd: 1
 			}
 		],
-		primary_action_label: __('Debug'),
+		primary_action_label: __('Test'),
 		primary_action: function(values) {
-			if (!values.address_name) {
-				frappe.msgprint(__('Please enter an address name'));
-				return;
-			}
+			let target_item = frm.doc.special_mappings.find(
+				sup => sup.producer_supplier === values.producer_supplier
+			);
 			
-			frm.call('debug_address_supplier_mapping', {
-				address_name: values.address_name
-			}).then(result => {
-				let debug_info = result.message;
-				let message = '<div class="debug-info">';
-				
-				if (debug_info.error) {
-					message += `<p><strong>Error:</strong> ${debug_info.error}</p>`;
-				} else if (debug_info.address_exists) {
-					message += `<p><strong>Address Found:</strong> Yes</p>`;
-					message += `<p><strong>Title:</strong> ${debug_info.address_details.title}</p>`;
-					message += `<p><strong>Line 1:</strong> ${debug_info.address_details.line1}</p>`;
-					message += `<p><strong>Dynamic Links:</strong> ${debug_info.dynamic_links.length}</p>`;
-					message += `<p><strong>Supplier Links:</strong> ${debug_info.supplier_links.length}</p>`;
-					message += `<p><strong>Found Supplier:</strong> ${debug_info.found_supplier || 'None'}</p>`;
-					
-					if (debug_info.dynamic_links.length > 0) {
-						message += '<h5>All Dynamic Links:</h5><ul>';
-						debug_info.dynamic_links.forEach(dl => {
-							message += `<li>${dl.link_doctype}: ${dl.link_name}</li>`;
-						});
-						message += '</ul>';
-					}
-				} else {
-					message += `<p><strong>Address Found:</strong> No</p>`;
-					if (debug_info.similar_addresses && debug_info.similar_addresses.length > 0) {
-						message += '<h5>Similar Addresses:</h5><ul>';
-						debug_info.similar_addresses.forEach(addr => {
-							message += `<li>${addr.name} - ${addr.address_title}</li>`;
-						});
-						message += '</ul>';
-					}
-				}
-				
-				message += '</div>';
-				
-				frappe.msgprint({
-					title: __('Debug Results'),
-					message: message,
-					indicator: debug_info.found_supplier ? 'green' : 'orange'
-				});
-			});
+			if (target_item) {
+				frappe.msgprint(__('Mapping Result: {0} → {1} (Type: {2})', 
+					[values.producer_supplier, target_item.consumer_supplier, target_item.mapping_type]));
+			} else {
+				frappe.msgprint(__('No mapping found for supplier: {0}', [values.producer_supplier]));
+			}
 			
 			this.hide();
 		}
 	}).show();
+}
+
+function export_csv_mapping(frm) {
+	let csv_data = 'producer_supplier,consumer_supplier,mapping_type,is_active,notes\n';
+	
+	frm.doc.special_mappings.forEach(sup => {
+		csv_data += `"${sup.producer_supplier}","${sup.consumer_supplier}","${sup.mapping_type}","${sup.is_active}","${sup.notes || ''}"\n`;
+	});
+	
+	let blob = new Blob([csv_data], { type: 'text/csv' });
+	let url = window.URL.createObjectURL(blob);
+	let a = document.createElement('a');
+	a.href = url;
+	a.download = `${frm.doc.mapping_name}_special_supplier_mappings.csv`;
+	a.click();
+	window.URL.revokeObjectURL(url);
 }

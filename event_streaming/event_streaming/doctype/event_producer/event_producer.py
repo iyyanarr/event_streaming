@@ -395,13 +395,13 @@ def set_insert(update, producer_site, event_producer):
 	doc.flags.from_live_sync = True
 
 	if update.use_same_name:
-		doc.insert(set_name=update.docname, set_child_names=False)
+		doc.insert(set_name=update.docname, set_child_names=False, ignore_permissions=True)
 	else:
 		# if event consumer is not saving documents with the same name as the producer
 		# store the remote docname in a custom field for future updates
 		doc.remote_docname = update.docname
 		doc.remote_site_name = event_producer
-		doc.insert(set_child_names=False)
+		doc.insert(set_child_names=False, ignore_permissions=True)
 
 
 def set_update(update, producer_site):
@@ -427,7 +427,7 @@ def set_update(update, producer_site):
 		else:
 			sync_dependencies(local_doc, producer_site)
 
-		local_doc.save()
+		local_doc.save(ignore_permissions=True)
 		local_doc.db_update_all()
 
 
@@ -467,7 +467,7 @@ def update_row_added(local_doc, added):
 			child_doc = frappe.get_doc(child)
 			child_doc.parent = local_doc.name
 			child_doc.parenttype = local_doc.doctype
-			child_doc.insert(set_name=child_doc.name)
+			child_doc.insert(set_name=child_doc.name, ignore_permissions=True)
 	return local_doc
 
 
@@ -556,7 +556,7 @@ def sync_dependencies(document, producer_site):
 					# Apply SPP value mappings to dependency if Document Type Mapping exists
 					master_doc = apply_spp_mappings_to_dependency(master_doc, linked_doctype)
 					master_doc = frappe.get_doc(master_doc)
-					master_doc.insert(set_name=docname)
+					master_doc.insert(set_name=docname, ignore_permissions=True)
 					frappe.db.commit()
 
 				except Exception as e:
@@ -703,7 +703,7 @@ def log_event_sync(update, event_producer, sync_status, error=None):
 		doc.docname = frappe.db.get_value(update.ref_doctype, {"remote_docname": update.docname}, "name")
 	if error:
 		doc.error = error
-	doc.insert()
+	doc.insert(ignore_permissions=True)
 
 
 def get_mapped_update(update, producer_site):

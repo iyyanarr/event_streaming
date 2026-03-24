@@ -10,6 +10,7 @@ class SPPSpecialSupplierMapping(Document):
 		"""Validate the special supplier mapping configuration"""
 		self.validate_duplicate_suppliers()
 		self.validate_mapping_logic()
+		self.validate_sites()
 
 	def validate_duplicate_suppliers(self):
 		"""Ensure no duplicate producer suppliers in the same mapping"""
@@ -18,6 +19,12 @@ class SPPSpecialSupplierMapping(Document):
 			if mapping.producer_supplier in suppliers:
 				frappe.throw(f"Duplicate producer supplier: {mapping.producer_supplier}")
 			suppliers.append(mapping.producer_supplier)
+
+	def validate_sites(self):
+		"""Validate producer and consumer sites (if present)"""
+		if hasattr(self, 'producer_site') and hasattr(self, 'consumer_site'):
+			if self.producer_site == self.consumer_site:
+				frappe.throw(_("Producer site and consumer site cannot be the same"))
 
 	def validate_mapping_logic(self):
 		"""Validate the mapping logic configuration"""
@@ -54,6 +61,62 @@ class SPPSpecialSupplierMapping(Document):
 		
 		frappe.logger().warning(f"No special mapping found for supplier: {producer_supplier}")
 		return None
+
+	@frappe.whitelist()
+	def import_csv_mapping(self, csv_file_url):
+		"""Import special supplier mappings from uploaded CSV file."""
+		import csv
+		import os
+		
+		try:
+			file_doc = frappe.get_doc("File", {"file_url": csv_file_url})
+			file_path = file_doc.get_full_path()
+			if not os.path.exists(file_path):
+				frappe.throw(_("File not found: {0}").format(csv_file_url))
+				
+			self.special_mappings = []
+			
+			with open(file_path, 'r', encoding='utf-8') as csvfile:
+				reader = csv.DictReader(csvfile)
+				fieldnames = reader.fieldnames
+				if not fieldnames:
+					frappe.throw(_("CSV file is empty or invalid"))
+				
+				producer_col = None
+				consumer_col = None
+				for field in fieldnames:
+					f = field.lower().strip().replace('\ufeff', '')
+					if f in ['producer_supplier', 'producer supplier', 'old_supplier', 'source_supplier']:
+						if not producer_col: producer_col = field
+					elif f in ['consumer_supplier', 'consumer supplier', 'new_supplier', 'target_supplier']:
+						if not consumer_col: consumer_col = field
+				
+				if (not producer_col or not consumer_col) and len(fieldnames) >= 2:
+					if not producer_col: producer_col = fieldnames[0]
+					if not consumer_col: consumer_col = fieldnames[1]
+					
+				if not producer_col or not consumer_col:
+					frappe.throw(_("CSV must have columns for producer and consumer supplier"))
+					
+				imported = 0
+				for row in reader:
+					p = (row.get(producer_col) or '').strip()
+					c = (row.get(consumer_col) or '').strip()
+					if p and c:
+						self.append('special_mappings', {
+							'producer_supplier': p,
+							'consumer_supplier': c,
+							'mapping_type': row.get('mapping_type', 'Direct').strip(),
+							'is_active': 1
+						})
+						imported += 1
+						
+			self.save()
+			frappe.db.commit()
+			return {"message": _("Successfully imported {0} special mappings").format(imported), "count": imported}
+		except Exception as e:
+			frappe.log_error(frappe.get_traceback(), "CSV Import Error")
+			frappe.throw(_("Error importing CSV: {0}").format(str(e)))
 
 	def process_address_based_mapping(self, mapping, doc_data):
 		"""Process address-based mapping logic - works with consumer site data after Document Type Mapping"""

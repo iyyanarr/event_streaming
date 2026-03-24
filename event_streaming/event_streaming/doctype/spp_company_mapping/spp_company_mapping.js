@@ -4,12 +4,16 @@
 frappe.ui.form.on('SPP Company Mapping', {
 	refresh: function(frm) {
 		// Add custom buttons
+		frm.add_custom_button(__('Import from CSV'), function() {
+			import_csv_mapping(frm);
+		}, __('Actions'));
+		
 		frm.add_custom_button(__('Test Mapping'), function() {
 			test_company_mapping(frm);
 		}, __('Actions'));
 		
 		frm.add_custom_button(__('Export to CSV'), function() {
-			export_company_csv_mapping(frm);
+			export_csv_mapping(frm);
 		}, __('Actions'));
 		
 		// Set indicator formatter for active status
@@ -22,35 +26,74 @@ frappe.ui.form.on('SPP Company Mapping', {
 			let active_count = frm.doc.company_mappings.filter(comp => comp.is_active).length;
 			let total_count = frm.doc.company_mappings.length;
 			
-			frm.dashboard.add_indicator(__('Active Company Mappings: {0} / {1}', [active_count, total_count]), 
+			frm.dashboard.add_indicator(__('Active Mappings: {0} / {1}', [active_count, total_count]), 
 				active_count === total_count ? 'green' : 'orange');
 		}
 	},
 	
-	source_site: function(frm) {
-		if (frm.doc.source_site === frm.doc.target_site) {
-			frappe.msgprint(__('Source site and target site cannot be the same'));
-			frm.set_value('source_site', '');
+	producer_site: function(frm) {
+		if (frm.doc.producer_site === frm.doc.consumer_site) {
+			frappe.msgprint(__('Producer site and consumer site cannot be the same'));
+			frm.set_value('producer_site', '');
 		}
 	},
 	
-	target_site: function(frm) {
-		if (frm.doc.source_site === frm.doc.target_site) {
-			frappe.msgprint(__('Source site and target site cannot be the same'));
-			frm.set_value('target_site', '');
+	consumer_site: function(frm) {
+		if (frm.doc.producer_site === frm.doc.consumer_site) {
+			frappe.msgprint(__('Producer site and consumer site cannot be the same'));
+			frm.set_value('consumer_site', '');
 		}
 	}
 });
 
 frappe.ui.form.on('SPP Company Mapping Detail', {
-	source_company: function(frm, cdt, cdn) {
-		let row = locals[cdt][cdn];
-		if (!row.target_company) {
-			// Auto-fill target with source if empty
-			frappe.model.set_value(cdt, cdn, 'target_company', row.source_company);
-		}
+	producer_company: function(frm, cdt, cdn) {
+		// Auto-fill removed for consistency
 	}
 });
+
+function import_csv_mapping(frm) {
+	if (frm.is_new()) {
+		frappe.msgprint(__('Please save this SPP Company Mapping before importing a CSV.'));
+		return;
+	}
+	new frappe.ui.Dialog({
+		title: __('Import Company Mappings from CSV'),
+		fields: [
+			{
+				fieldtype: 'Attach',
+				fieldname: 'csv_file',
+				label: __('CSV File'),
+				reqd: 1,
+				description: __('Accepted headers: producer_company, consumer_company')
+			}
+		],
+		primary_action_label: __('Import'),
+		primary_action: function(values) {
+			if (!values.csv_file) {
+				frappe.msgprint(__('Please attach a CSV file'));
+				return;
+			}
+			frm.call('import_csv_mapping', { csv_file_url: values.csv_file }).then((r) => {
+				frm.reload_doc().then(() => {
+					frm.refresh_field('company_mappings');
+					let info = r.message || {};
+					frappe.show_alert({
+						message: __('Imported {0} mappings', [info.count || 0]),
+						indicator: 'green'
+					});
+				});
+			}).catch(e => {
+				frappe.msgprint({
+					title: __('Import Failed'),
+					message: e.message || __('Unknown error during import'),
+					indicator: 'red'
+				});
+			});
+			this.hide();
+		}
+	}).show();
+}
 
 function test_company_mapping(frm) {
 	new frappe.ui.Dialog({
@@ -58,22 +101,22 @@ function test_company_mapping(frm) {
 		fields: [
 			{
 				fieldtype: 'Data',
-				fieldname: 'source_company',
-				label: __('Source Company'),
+				fieldname: 'producer_company',
+				label: __('Producer Company'),
 				reqd: 1
 			}
 		],
 		primary_action_label: __('Test'),
 		primary_action: function(values) {
-			let target_company = frm.doc.company_mappings.find(
-				comp => comp.source_company === values.source_company && comp.is_active
+			let target_item = frm.doc.company_mappings.find(
+				comp => comp.producer_company === values.producer_company
 			);
 			
-			if (target_company) {
+			if (target_item) {
 				frappe.msgprint(__('Mapping Result: {0} → {1}', 
-					[values.source_company, target_company.target_company]));
+					[values.producer_company, target_item.consumer_company]));
 			} else {
-				frappe.msgprint(__('No mapping found for company: {0}', [values.source_company]));
+				frappe.msgprint(__('No mapping found for company: {0}', [values.producer_company]));
 			}
 			
 			this.hide();
@@ -81,14 +124,13 @@ function test_company_mapping(frm) {
 	}).show();
 }
 
-function export_company_csv_mapping(frm) {
-	let csv_data = 'source_company,target_company,is_active,notes\n';
+function export_csv_mapping(frm) {
+	let csv_data = 'producer_company,consumer_company,is_active,notes\n';
 	
 	frm.doc.company_mappings.forEach(comp => {
-		csv_data += `"${comp.source_company}","${comp.target_company}","${comp.is_active}","${comp.notes || ''}"\n`;
+		csv_data += `"${comp.producer_company}","${comp.consumer_company}","${comp.is_active}","${comp.notes || ''}"\n`;
 	});
 	
-	// Create and download CSV file
 	let blob = new Blob([csv_data], { type: 'text/csv' });
 	let url = window.URL.createObjectURL(blob);
 	let a = document.createElement('a');

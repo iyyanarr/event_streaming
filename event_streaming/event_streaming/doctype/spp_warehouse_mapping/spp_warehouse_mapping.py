@@ -182,8 +182,16 @@ class SPPWarehouseMapping(Document):
 			for wh, groups in invalid_item_groups.items():
 				invalid_summary.append(f"{wh}: {', '.join(groups)}")
 			msg_parts.append(_("Invalid Item Groups skipped: {0}").format('; '.join(invalid_summary)))
-		frappe.msgprint('<br>'.join(msg_parts))
-		return {"added": added, "skipped_duplicates": skipped_duplicates, "invalid_item_groups": invalid_item_groups}
+		
+		final_msg = '<br>'.join(msg_parts)
+		frappe.msgprint(final_msg)
+		return {
+			"message": final_msg,
+			"count": added,
+			"added": added, 
+			"skipped_duplicates": skipped_duplicates, 
+			"invalid_item_groups": invalid_item_groups
+		}
 
 
 @frappe.whitelist()

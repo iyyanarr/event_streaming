@@ -1,43 +1,43 @@
 // Copyright (c) 2025, Frappe Technologies and contributors
-// License: MIT. See LICENSE
+// For license information, please see license.txt
 
 frappe.ui.form.on('SPP Warehouse Mapping', {
 	refresh: function(frm) {
 		// Add custom buttons
 		frm.add_custom_button(__('Import from CSV'), function() {
-			import_warehouse_csv_mapping(frm);
+			import_csv_mapping(frm);
 		}, __('Actions'));
-
+		
 		frm.add_custom_button(__('Test Mapping'), function() {
 			test_warehouse_mapping(frm);
 		}, __('Actions'));
-
+		
 		frm.add_custom_button(__('Export to CSV'), function() {
-			export_warehouse_csv_mapping(frm);
+			export_csv_mapping(frm);
 		}, __('Actions'));
-
+		
 		// Set indicator formatter for active status
 		frm.set_indicator_formatter('is_active', function(doc) {
 			return doc.is_active ? 'green' : 'red';
 		});
-
+		
 		// Add mapping statistics
 		if (frm.doc.warehouse_mappings && frm.doc.warehouse_mappings.length) {
 			let active_count = frm.doc.warehouse_mappings.filter(wh => wh.is_active).length;
 			let total_count = frm.doc.warehouse_mappings.length;
-
-			frm.dashboard.add_indicator(__('Active Warehouse Mappings: {0} / {1}', [active_count, total_count]), 
+			
+			frm.dashboard.add_indicator(__('Active Mappings: {0} / {1}', [active_count, total_count]), 
 				active_count === total_count ? 'green' : 'orange');
 		}
 	},
-
+	
 	producer_site: function(frm) {
 		if (frm.doc.producer_site === frm.doc.consumer_site) {
 			frappe.msgprint(__('Producer site and consumer site cannot be the same'));
 			frm.set_value('producer_site', '');
 		}
 	},
-
+	
 	consumer_site: function(frm) {
 		if (frm.doc.producer_site === frm.doc.consumer_site) {
 			frappe.msgprint(__('Producer site and consumer site cannot be the same'));
@@ -47,16 +47,16 @@ frappe.ui.form.on('SPP Warehouse Mapping', {
 });
 
 frappe.ui.form.on('SPP Warehouse Mapping Detail', {
-	producer_warehouse: function(frm, cdt, cdn) {
-		let row = locals[cdt][cdn];
-		if (!row.consumer_warehouse) {
-			// Auto-fill consumer with producer if empty (user can change manually or via CSV import)
-			frappe.model.set_value(cdt, cdn, 'consumer_warehouse', row.producer_warehouse);
-		}
+	warehouse_mappings_add: function(frm, cdt, cdn) {
+		// New row added
 	}
 });
 
-function import_warehouse_csv_mapping(frm) {
+function import_csv_mapping(frm) {
+	if (frm.is_new()) {
+		frappe.msgprint(__('Please save this SPP Warehouse Mapping before importing a CSV.'));
+		return;
+	}
 	new frappe.ui.Dialog({
 		title: __('Import Warehouse Mappings from CSV'),
 		fields: [
@@ -65,7 +65,7 @@ function import_warehouse_csv_mapping(frm) {
 				fieldname: 'csv_file',
 				label: __('CSV File'),
 				reqd: 1,
-				description: __('Accepted headers: Producer Warehouse, Consumer Warehouse, Item Group (optional, comma-separated for multiple groups). Backward compatible: Old Warehouse / New Warehouse.')
+				description: __('Accepted headers: producer_warehouse, consumer_warehouse, item_group, operations')
 			}
 		],
 		primary_action_label: __('Import'),
@@ -74,12 +74,15 @@ function import_warehouse_csv_mapping(frm) {
 				frappe.msgprint(__('Please attach a CSV file'));
 				return;
 			}
-
-			frm.call('import_csv_mapping', {
-				csv_file_url: values.csv_file
-			}).then(() => {
-				frm.reload_doc();
-				frappe.msgprint(__('CSV import completed successfully'));
+			frm.call('import_csv_mapping', { csv_file_url: values.csv_file }).then((r) => {
+				frm.reload_doc().then(() => {
+					frm.refresh_field('warehouse_mappings');
+					let info = r.message || {};
+					frappe.show_alert({
+						message: __('Imported {0} mappings', [info.count || info.added || 0]),
+						indicator: 'green'
+					});
+				});
 			}).catch(e => {
 				frappe.msgprint({
 					title: __('Import Failed'),
@@ -87,7 +90,6 @@ function import_warehouse_csv_mapping(frm) {
 					indicator: 'red'
 				});
 			});
-
 			this.hide();
 		}
 	}).show();
@@ -107,107 +109,53 @@ function test_warehouse_mapping(frm) {
 				fieldtype: 'Data',
 				fieldname: 'item_group',
 				label: __('Item Group (Optional)'),
-				description: __('For Stock Entry: Comma-separated item groups (e.g., Raw Material,Chemical). Leave empty to test without item group filtering')
 			},
 			{
 				fieldtype: 'Data',
 				fieldname: 'operations',
 				label: __('Operations (Optional)'),
-				description: __('For Work Order/BOM: Comma-separated operations (e.g., Mixing,Extrusion,Packing). Leave empty to test without operations filtering')
 			}
 		],
 		primary_action_label: __('Test'),
 		primary_action: function(values) {
-			let consumer_warehouse = null;
-			let filter_values_to_check = [];
-			let filter_field = null;
+			let filters = { producer_warehouse: values.producer_warehouse };
+			if (values.item_group) filters.item_group = values.item_group;
+			if (values.operations) filters.operations = values.operations;
 			
-			// Determine which filter to use - operations takes priority
-			if (values.operations) {
-				filter_field = 'operations';
-				filter_values_to_check = values.operations.split(',').map(g => g.trim()).filter(g => g);
-			} else if (values.item_group) {
-				filter_field = 'item_group';
-				filter_values_to_check = values.item_group.split(',').map(g => g.trim()).filter(g => g);
+			// Simple local search for simulation
+			let results = frm.doc.warehouse_mappings.filter(wh => {
+				let match = wh.producer_warehouse === values.producer_warehouse;
+				if (values.item_group && wh.item_group) {
+					match = match && wh.item_group.includes(values.item_group);
+				}
+				if (values.operations && wh.operations) {
+					match = match && wh.operations.includes(values.operations);
+				}
+				return match && wh.is_active;
+			});
+			
+			if (results.length > 0) {
+				let msg = __('Mapping Results for {0}:', [values.producer_warehouse]);
+				results.forEach(r => {
+					msg += `<br>→ ${r.consumer_warehouse} (Group: ${r.item_group || 'Any'}, Ops: ${r.operations || 'Any'})`;
+				});
+				frappe.msgprint(msg);
 			} else {
-				filter_values_to_check = [null]; // Check for general mappings
+				frappe.msgprint(__('No mapping found for warehouse: {0}', [values.producer_warehouse]));
 			}
-
-			// Check each filter value
-			for (let check_value of filter_values_to_check) {
-				for (let wh of (frm.doc.warehouse_mappings || [])) {
-					if (!wh.is_active) continue;
-					if (wh.producer_warehouse !== values.producer_warehouse) continue;
-
-					if (filter_field) {
-						// Check for exact match
-						if (wh[filter_field] === check_value) {
-							consumer_warehouse = wh.consumer_warehouse;
-							break;
-						}
-						
-						// Check if mapping's filter values contain our check value
-						if (wh[filter_field] && check_value) {
-							let mapping_values = wh[filter_field].split(',').map(v => v.trim());
-							if (mapping_values.includes(check_value)) {
-								consumer_warehouse = wh.consumer_warehouse;
-								break;
-							}
-						}
-						
-						// Fallback to general mapping if no filter field specified in mapping
-						if (!wh[filter_field] && !check_value) {
-							consumer_warehouse = wh.consumer_warehouse;
-							break;
-						}
-					} else {
-						// No filter specified - use general mapping
-						if (!wh.item_group && !wh.operations) {
-							consumer_warehouse = wh.consumer_warehouse;
-							break;
-						}
-					}
-				}
-				
-				if (consumer_warehouse) break;
-			}
-
-			if (consumer_warehouse) {
-				let filter_display = '';
-				if (values.operations) {
-					filter_display = ` (Operations: ${values.operations})`;
-				} else if (values.item_group) {
-					filter_display = ` (Item Group: ${values.item_group})`;
-				}
-				frappe.msgprint(__('Mapping Result: {0}{1} → {2}', [values.producer_warehouse, filter_display, consumer_warehouse]));
-			} else {
-				let filter_display = '';
-				if (values.operations) {
-					filter_display = ` with operations: ${values.operations}`;
-				} else if (values.item_group) {
-					filter_display = ` with item group(s): ${values.item_group}`;
-				}
-				frappe.msgprint(__('No mapping found for warehouse: {0}{1}', [values.producer_warehouse, filter_display]));
-			}
-
+			
 			this.hide();
 		}
 	}).show();
 }
 
-function export_warehouse_csv_mapping(frm) {
-	let csv_data = 'Producer Warehouse,Consumer Warehouse,Item Group,Is Active,Notes\n';
-
-	(frm.doc.warehouse_mappings || []).forEach(wh => {
-		// Handle multiple item groups by wrapping in quotes if they contain commas
-		let item_group_value = wh.item_group || '';
-		if (item_group_value.includes(',')) {
-			item_group_value = `"${item_group_value}"`;
-		}
-		
-		csv_data += `"${wh.producer_warehouse}","${wh.consumer_warehouse}","${item_group_value}","${wh.is_active}","${wh.notes || ''}"\n`;
+function export_csv_mapping(frm) {
+	let csv_data = 'producer_warehouse,consumer_warehouse,item_group,operations,is_active,notes\n';
+	
+	frm.doc.warehouse_mappings.forEach(wh => {
+		csv_data += `"${wh.producer_warehouse}","${wh.consumer_warehouse}","${wh.item_group || ''}","${wh.operations || ''}","${wh.is_active}","${wh.notes || ''}"\n`;
 	});
-
+	
 	let blob = new Blob([csv_data], { type: 'text/csv' });
 	let url = window.URL.createObjectURL(blob);
 	let a = document.createElement('a');

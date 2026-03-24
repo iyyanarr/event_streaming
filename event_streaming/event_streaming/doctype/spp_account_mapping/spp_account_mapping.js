@@ -5,7 +5,7 @@ frappe.ui.form.on('SPP Account Mapping', {
 	refresh: function(frm) {
 		// Add custom buttons
 		frm.add_custom_button(__('Import from CSV'), function() {
-			import_account_csv_mapping(frm);
+			import_csv_mapping(frm);
 		}, __('Actions'));
 		
 		frm.add_custom_button(__('Test Mapping'), function() {
@@ -13,7 +13,7 @@ frappe.ui.form.on('SPP Account Mapping', {
 		}, __('Actions'));
 		
 		frm.add_custom_button(__('Export to CSV'), function() {
-			export_account_csv_mapping(frm);
+			export_csv_mapping(frm);
 		}, __('Actions'));
 		
 		// Set indicator formatter for active status
@@ -26,7 +26,7 @@ frappe.ui.form.on('SPP Account Mapping', {
 			let active_count = frm.doc.account_mappings.filter(acc => acc.is_active).length;
 			let total_count = frm.doc.account_mappings.length;
 			
-			frm.dashboard.add_indicator(__('Active Account Mappings: {0} / {1}', [active_count, total_count]), 
+			frm.dashboard.add_indicator(__('Active Mappings: {0} / {1}', [active_count, total_count]), 
 				active_count === total_count ? 'green' : 'orange');
 		}
 	},
@@ -48,15 +48,15 @@ frappe.ui.form.on('SPP Account Mapping', {
 
 frappe.ui.form.on('SPP Account Mapping Detail', {
 	source_account: function(frm, cdt, cdn) {
-		let row = locals[cdt][cdn];
-		if (!row.target_account) {
-			// Auto-fill target with source if empty
-			frappe.model.set_value(cdt, cdn, 'target_account', row.source_account);
-		}
+		// Auto-fill removed for consistency with other mapping Doctypes
 	}
 });
 
-function import_account_csv_mapping(frm) {
+function import_csv_mapping(frm) {
+	if (frm.is_new()) {
+		frappe.msgprint(__('Please save this SPP Account Mapping before importing a CSV.'));
+		return;
+	}
 	new frappe.ui.Dialog({
 		title: __('Import Account Mappings from CSV'),
 		fields: [
@@ -65,7 +65,7 @@ function import_account_csv_mapping(frm) {
 				fieldname: 'csv_file',
 				label: __('CSV File'),
 				reqd: 1,
-				description: __('CSV file should have columns: source_account, target_account, account_type')
+				description: __('Accepted headers: source_account, target_account, account_type')
 			}
 		],
 		primary_action_label: __('Import'),
@@ -74,24 +74,22 @@ function import_account_csv_mapping(frm) {
 				frappe.msgprint(__('Please attach a CSV file'));
 				return;
 			}
-			
-			frappe.call({
-				method: 'frappe.client.get_file',
-				args: {
-					file_url: values.csv_file
-				},
-				callback: function(r) {
-					if (r.message) {
-						frm.call('import_csv_mapping', {
-							csv_data: r.message
-						}).then(() => {
-							frm.refresh();
-							frappe.msgprint(__('CSV import completed successfully'));
-						});
-					}
-				}
+			frm.call('import_csv_mapping', { csv_file_url: values.csv_file }).then((r) => {
+				frm.reload_doc().then(() => {
+					frm.refresh_field('account_mappings');
+					let info = r.message || {};
+					frappe.show_alert({
+						message: __('Imported {0} mappings', [info.count || 0]),
+						indicator: 'green'
+					});
+				});
+			}).catch(e => {
+				frappe.msgprint({
+					title: __('Import Failed'),
+					message: e.message || __('Unknown error during import'),
+					indicator: 'red'
+				});
 			});
-			
 			this.hide();
 		}
 	}).show();
@@ -110,13 +108,13 @@ function test_account_mapping(frm) {
 		],
 		primary_action_label: __('Test'),
 		primary_action: function(values) {
-			let target_account = frm.doc.account_mappings.find(
-				acc => acc.source_account === values.source_account && acc.is_active
+			let target_item = frm.doc.account_mappings.find(
+				acc => acc.source_account === values.source_account
 			);
 			
-			if (target_account) {
+			if (target_item) {
 				frappe.msgprint(__('Mapping Result: {0} → {1}', 
-					[values.source_account, target_account.target_account]));
+					[values.source_account, target_item.target_account]));
 			} else {
 				frappe.msgprint(__('No mapping found for account: {0}', [values.source_account]));
 			}
@@ -126,14 +124,13 @@ function test_account_mapping(frm) {
 	}).show();
 }
 
-function export_account_csv_mapping(frm) {
+function export_csv_mapping(frm) {
 	let csv_data = 'source_account,target_account,account_type,is_active,notes\n';
 	
 	frm.doc.account_mappings.forEach(acc => {
 		csv_data += `"${acc.source_account}","${acc.target_account}","${acc.account_type || ''}","${acc.is_active}","${acc.notes || ''}"\n`;
 	});
 	
-	// Create and download CSV file
 	let blob = new Blob([csv_data], { type: 'text/csv' });
 	let url = window.URL.createObjectURL(blob);
 	let a = document.createElement('a');

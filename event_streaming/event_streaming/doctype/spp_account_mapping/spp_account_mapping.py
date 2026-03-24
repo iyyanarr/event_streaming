@@ -51,31 +51,72 @@ class SPPAccountMapping(Document):
 		return target_account
 
 	@frappe.whitelist()
-	def import_csv_mapping(self, csv_data):
-		"""Import account mappings from CSV data"""
+	def import_csv_mapping(self, csv_file_url):
+		"""Import account mappings from uploaded CSV file using standard producer/consumer-like logic.
+		Returns debug info about detected columns."""
 		import csv
-		import io
+		import os
 		
-		# Clear existing mappings
-		self.account_mappings = []
-		
-		# Parse CSV data
-		reader = csv.DictReader(io.StringIO(csv_data))
-		for row in reader:
-			# Handle different CSV column names
-			source_account = row.get('source_account') or row.get('Source Account') or row.get('old_account')
-			target_account = row.get('target_account') or row.get('Target Account') or row.get('new_account')
+		try:
+			file_doc = frappe.get_doc("File", {"file_url": csv_file_url})
+			file_path = file_doc.get_full_path()
+			if not os.path.exists(file_path):
+				frappe.throw(_("File not found: {0}").format(csv_file_url))
+				
+			# Clear existing
+			self.account_mappings = []
 			
-			if source_account and target_account:
-				self.append('account_mappings', {
-					'source_account': source_account.strip(),
-					'target_account': target_account.strip(),
-					'account_type': row.get('account_type', '').strip() if row.get('account_type') else None,
-					'is_active': 1
-				})
-		
-		self.save()
-		frappe.msgprint(_("Successfully imported {0} account mappings").format(len(self.account_mappings)))
+			with open(file_path, 'r', encoding='utf-8') as csvfile:
+				reader = csv.DictReader(csvfile)
+				fieldnames = reader.fieldnames
+				if not fieldnames:
+					frappe.throw(_("CSV file is empty or invalid"))
+				
+				# Detect columns
+				source_col = None
+				target_col = None
+				for field in fieldnames:
+					f = field.lower().strip().replace('\ufeff', '')
+					if f in ['source_account', 'source account', 'old_account', 'producer_account']:
+						if not source_col:
+							source_col = field
+					elif f in ['target_account', 'target account', 'new_account', 'consumer_account']:
+						if not target_col:
+							target_col = field
+							
+				# Fallback by position
+				if (not source_col or not target_col) and len(fieldnames) >= 2:
+					if not source_col: source_col = fieldnames[0]
+					if not target_col: target_col = fieldnames[1]
+					
+				if not source_col or not target_col:
+					frappe.throw(_("CSV must have columns for source and target account"))
+					
+				imported = 0
+				for row in reader:
+					src = (row.get(source_col) or '').strip()
+					tgt = (row.get(target_col) or '').strip()
+					if src and tgt:
+						self.append('account_mappings', {
+							'source_account': src,
+							'target_account': tgt,
+							'account_type': (row.get('account_type') or row.get('Account Type') or '').strip() or None,
+							'is_active': 1
+						})
+						imported += 1
+						
+			self.save()
+			frappe.db.commit()
+			
+			return {
+				"message": _("Successfully imported {0} account mappings").format(imported),
+				"count": imported,
+				"source_col": source_col,
+				"target_col": target_col
+			}
+		except Exception as e:
+			frappe.log_error(frappe.get_traceback(), "CSV Import Error")
+			frappe.throw(_("Error importing CSV: {0}").format(str(e)))
 
 
 @frappe.whitelist()
