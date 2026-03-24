@@ -427,7 +427,10 @@ def set_update(update, producer_site):
 		else:
 			sync_dependencies(local_doc, producer_site)
 
+
+		local_doc.flags.ignore_links = True
 		local_doc.save(ignore_permissions=True)
+
 		local_doc.db_update_all()
 
 

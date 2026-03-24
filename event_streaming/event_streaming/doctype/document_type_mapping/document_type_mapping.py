@@ -227,55 +227,30 @@ class DocumentTypeMapping(Document):
 
 	def get_company_mapping(self, company):
 		"""Get mapped company name from SPP Company Mapping child table"""
-		try:
-			mapping_doc = frappe.db.get_value("SPP Company Mapping", 
-				{"is_active": 1}, "name")
-			
-			if mapping_doc:
-				mapped_company = frappe.db.get_value("SPP Company Mapping Detail",
-					{"parent": mapping_doc, "producer_company": company}, "consumer_company")
-				if mapped_company:
-					if frappe.db.exists("Company", mapped_company):
-						frappe.logger().info(f"Company mapping: {company} -> {mapped_company}")
-						return mapped_company
-					else:
-						frappe.logger().warning(f"Mapped company '{mapped_company}' does not exist for original '{company}'")
-				else:
-					frappe.logger().warning(f"No mapping found for company: {company}")
-			
-			return company
-		except Exception as e:
-			frappe.logger().error(f"Error in company mapping for '{company}': {str(e)}")
-			return company
+		return self.get_robust_mapping(
+			"SPP Company Mapping", 
+			"SPP Company Mapping Detail", 
+			"producer_company", 
+			"consumer_company", 
+			company, 
+			"Company"
+		)
 
 	def get_supplier_mapping(self, supplier):
 		"""Get mapped supplier name from SPP Supplier Mapping child table with special supplier mapping support"""
-		try:
-			# First check if this supplier needs special mapping
-			special_mapping = self.get_special_supplier_mapping(supplier)
-			if special_mapping:
-				return special_mapping
-			
-			# Normal supplier mapping
-			mapping_doc = frappe.db.get_value("SPP Supplier Mapping", 
-				{"is_active": 1}, "name")
-			
-			if mapping_doc:
-				mapped_supplier = frappe.db.get_value("SPP Supplier Mapping Detail",
-					{"parent": mapping_doc, "producer_supplier": supplier}, "consumer_supplier")
-				if mapped_supplier:
-					if frappe.db.exists("Supplier", mapped_supplier):
-						frappe.logger().info(f"Supplier mapping: {supplier} -> {mapped_supplier}")
-						return mapped_supplier
-					else:
-						frappe.logger().warning(f"Mapped supplier '{mapped_supplier}' does not exist for original '{supplier}'")
-				else:
-					frappe.logger().warning(f"No mapping found for supplier: {supplier}")
-			
-			return supplier
-		except Exception as e:
-			frappe.logger().error(f"Error in supplier mapping for '{supplier}': {str(e)}")
-			return supplier
+		# First check if this supplier needs special mapping
+		special_mapping = self.get_special_supplier_mapping(supplier)
+		if special_mapping:
+			return special_mapping
+		
+		return self.get_robust_mapping(
+			"SPP Supplier Mapping", 
+			"SPP Supplier Mapping Detail", 
+			"producer_supplier", 
+			"consumer_supplier", 
+			supplier, 
+			"Supplier"
+		)
 
 	def get_special_supplier_mapping(self, supplier):
 		"""Get special supplier mapping using DocType configuration"""
@@ -308,26 +283,14 @@ class DocumentTypeMapping(Document):
 
 	def get_item_mapping(self, item_code):
 		"""Get mapped item code from SPP Item Mapping child table"""
-		try:
-			mapping_doc = frappe.db.get_value("SPP Item Mapping", 
-				{"is_active": 1}, "name")
-			
-			if mapping_doc:
-				mapped_item = frappe.db.get_value("SPP Item Mapping Detail",
-					{"parent": mapping_doc, "producer_item_code": item_code}, "consumer_item_code")
-				if mapped_item:
-					if frappe.db.exists("Item", mapped_item):
-						frappe.logger().info(f"Item mapping: {item_code} -> {mapped_item}")
-						return mapped_item
-					else:
-						frappe.logger().warning(f"Mapped item '{mapped_item}' does not exist for original '{item_code}'")
-				else:
-					frappe.logger().warning(f"No mapping found for item: {item_code}")
-			
-			return item_code
-		except Exception as e:
-			frappe.logger().error(f"Error in item mapping for '{item_code}': {str(e)}")
-			return item_code
+		return self.get_robust_mapping(
+			"SPP Item Mapping", 
+			"SPP Item Mapping Detail", 
+			"producer_item_code", 
+			"consumer_item_code", 
+			item_code, 
+			"Item"
+		)
 
 	def get_warehouse_mapping(self, warehouse):
 		"""Get mapped warehouse name from SPP Warehouse Mapping child table with item group and operations support"""
@@ -441,49 +404,25 @@ class DocumentTypeMapping(Document):
 
 	def get_account_mapping(self, account):
 		"""Get mapped account name from SPP Account Mapping child table"""
-		try:
-			mapping_doc = frappe.db.get_value("SPP Account Mapping", 
-				{"is_active": 1}, "name")
-			
-			if mapping_doc:
-				mapped_account = frappe.db.get_value("SPP Account Mapping Detail",
-					{"parent": mapping_doc, "source_account": account}, "target_account")
-				if mapped_account:
-					if frappe.db.exists("Account", mapped_account):
-						frappe.logger().info(f"Account mapping: {account} -> {mapped_account}")
-						return mapped_account
-					else:
-						frappe.logger().warning(f"Mapped account '{mapped_account}' does not exist for original '{account}'")
-				else:
-					frappe.logger().warning(f"No mapping found for account: {account}")
-			
-			return account
-		except Exception as e:
-			frappe.logger().error(f"Error in account mapping for '{account}': {str(e)}")
-			return account
+		return self.get_robust_mapping(
+			"SPP Account Mapping", 
+			"SPP Account Mapping Detail", 
+			"source_account", 
+			"target_account", 
+			account, 
+			"Account"
+		)
 
 	def get_cost_center_mapping(self, cost_center):
 		"""Get mapped cost center name from SPP Cost Center Mapping child table"""
-		try:
-			mapping_doc = frappe.db.get_value("SPP Cost Center Mapping", 
-				{"is_active": 1}, "name")
-			
-			if mapping_doc:
-				mapped_cost_center = frappe.db.get_value("SPP Cost Center Mapping Detail",
-					{"parent": mapping_doc, "producer_cost_center": cost_center}, "consumer_cost_center")
-				if mapped_cost_center:
-					if frappe.db.exists("Cost Center", mapped_cost_center):
-						frappe.logger().info(f"Cost Center mapping: {cost_center} -> {mapped_cost_center}")
-						return mapped_cost_center
-					else:
-						frappe.logger().warning(f"Mapped cost center '{mapped_cost_center}' does not exist for original '{cost_center}'")
-				else:
-					frappe.logger().warning(f"No mapping found for cost center: {cost_center}")
-			
-			return cost_center
-		except Exception as e:
-			frappe.logger().error(f"Error in cost center mapping for '{cost_center}': {str(e)}")
-			return cost_center
+		return self.get_robust_mapping(
+			"SPP Cost Center Mapping", 
+			"SPP Cost Center Mapping Detail", 
+			"producer_cost_center", 
+			"consumer_cost_center", 
+			cost_center, 
+			"Cost Center"
+		)
 
 	def get_tax_template_mapping(self, tax_template, template_type=None):
 		"""Get mapped tax template name from SPP Tax Template Mapping child table"""
@@ -562,59 +501,52 @@ class DocumentTypeMapping(Document):
 			frappe.logger().error(f"Error in item tax template mapping for '{item_tax_template}': {str(e)}")
 			return item_tax_template
 
-	def get_contact_mapping(self, contact):
-		"""Get mapped contact name from SPP Contact Mapping child table"""
-		try:
-			# Get the SPP Contact Mapping document for this site combination
-			mapping_doc = frappe.db.get_value("SPP Contact Mapping", 
-				{"is_active": 1}, "name")
-			
-			if mapping_doc:
-				# Look in the child table contact_mappings
-				mapped_contact = frappe.db.get_value("SPP Contact Mapping Detail",
-					{"parent": mapping_doc, "producer_contact": contact}, "consumer_contact")
-				if mapped_contact:
-					# Validate that the mapped contact exists
-					if frappe.db.exists("Contact", mapped_contact):
-						frappe.logger().info(f"Contact mapping: {contact} -> {mapped_contact}")
-						return mapped_contact
-					else:
-						frappe.logger().warning(f"Mapped contact '{mapped_contact}' does not exist for original '{contact}'")
-				else:
-					frappe.logger().warning(f"No mapping found for contact: {contact}")
-			
-			# Return original if no mapping found or mapped value doesn't exist
-			return contact
-		except Exception as e:
-			frappe.logger().error(f"Error in contact mapping for '{contact}': {str(e)}")
-			return contact
-
 	def get_address_mapping(self, address):
 		"""Get mapped address name from SPP Address Mapping child table"""
+		return self.get_robust_mapping(
+			"SPP Address Mapping", 
+			"SPP Address Mapping Detail", 
+			"producer_address", 
+			"consumer_address", 
+			address, 
+			"Address"
+		)
+
+	def get_robust_mapping(self, mapping_doctype, detail_doctype, producer_field, consumer_field, producer_value, local_doc_type):
+		"""Generic helper to find the first mapping that actually exists in local database"""
 		try:
-			# Get the SPP Address Mapping document for this site combination
-			mapping_doc = frappe.db.get_value("SPP Address Mapping", 
-				{"is_active": 1}, "name")
+			mapping_doc = frappe.db.get_value(mapping_doctype, {"is_active": 1}, "name")
+			if not mapping_doc:
+				return producer_value
+				
+			# Look for all mappings for this producer value
+			mappings = frappe.db.get_all(detail_doctype,
+				filters={"parent": mapping_doc, producer_field: producer_value},
+				fields=[consumer_field],
+				order_by="idx ASC")
 			
-			if mapping_doc:
-				# Look in the child table address_mappings
-				mapped_address = frappe.db.get_value("SPP Address Mapping Detail",
-					{"parent": mapping_doc, "producer_address": address}, "consumer_address")
-				if mapped_address:
-					# Validate that the mapped address exists
-					if frappe.db.exists("Address", mapped_address):
-						frappe.logger().info(f"Address mapping: {address} -> {mapped_address}")
-						return mapped_address
-					else:
-						frappe.logger().warning(f"Mapped address '{mapped_address}' does not exist for original '{address}'")
-				else:
-					frappe.logger().warning(f"No mapping found for address: {address}")
+			for m in mappings:
+				mapped_value = m.get(consumer_field)
+				if mapped_value and frappe.db.exists(local_doc_type, mapped_value):
+					frappe.logger().info(f"Robust mapping found: {producer_value} -> {mapped_value} ({local_doc_type})")
+					return mapped_value
 			
-			# Return original if no mapping found or mapped value doesn't exist
-			return address
+			frappe.logger().warning(f"No valid mapping found for {local_doc_type}: {producer_value} in {mapping_doctype}")
+			return producer_value
 		except Exception as e:
-			frappe.logger().error(f"Error in address mapping for '{address}': {str(e)}")
-			return address
+			frappe.logger().error(f"Error in robust mapping for {local_doc_type} '{producer_value}': {str(e)}")
+			return producer_value
+
+	def get_contact_mapping(self, contact):
+		"""Get mapped contact name from SPP Contact Mapping child table"""
+		return self.get_robust_mapping(
+			"SPP Contact Mapping", 
+			"SPP Contact Mapping Detail", 
+			"producer_contact", 
+			"consumer_contact", 
+			contact, 
+			"Contact"
+		)
 
 	def get_supplier_from_address(self, address_name):
 		"""Find supplier linked to a specific address"""
