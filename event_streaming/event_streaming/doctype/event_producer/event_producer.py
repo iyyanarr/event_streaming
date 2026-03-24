@@ -429,6 +429,10 @@ def set_update(update, producer_site):
 
 
 		local_doc.flags.ignore_links = True
+		local_doc.flags.ignore_validate = True
+		local_doc.flags.ignore_mandatory = True
+		local_doc.flags.from_live_sync = True
+		
 		local_doc.save(ignore_permissions=True)
 
 		local_doc.db_update_all()
