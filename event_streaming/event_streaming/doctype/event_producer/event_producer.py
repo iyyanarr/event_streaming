@@ -796,12 +796,8 @@ def scheduled_pull_from_node():
 def apply_special_supplier_mapping(doc_data, original_doc=None):
 	"""Apply special supplier mapping after Document Type Mapping is complete"""
 	try:
-		# Check if document has a supplier field
-		if not doc_data.get("supplier"):
-			return doc_data
-			
+		# For warehouse-based mapping, we might not have a supplier yet
 		supplier = doc_data.get("supplier")
-		frappe.logger().info(f"Checking special supplier mapping for: {supplier}")
 		
 		# Get active special supplier mapping configuration
 		mapping_doc_name = frappe.db.get_value("SPP Special Supplier Mapping", 
@@ -814,7 +810,7 @@ def apply_special_supplier_mapping(doc_data, original_doc=None):
 		# Get the mapping document
 		mapping_doc = frappe.get_doc("SPP Special Supplier Mapping", mapping_doc_name)
 		
-		# Try to get special mapping for this supplier
+		# Try to get special mapping for this supplier (or extract from warehouse)
 		special_supplier = mapping_doc.get_special_supplier_mapping(supplier, doc_data)
 		
 		if special_supplier and special_supplier != supplier:

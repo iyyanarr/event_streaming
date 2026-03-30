@@ -29,7 +29,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Mapping Type",
-   "options": "Address Based\nDirect\nCustom",
+   "options": "Address Based\nDirect\nCustom\nWarehouse Based",
    "reqd": 1
   },
   {
@@ -60,6 +60,13 @@
    "fieldtype": "Select",
    "label": "Address Field",
    "options": "supplier_address\nshipping_address\nbilling_address\ncustomer_address"
+  },
+  {
+   "depends_on": "eval:doc.mapping_type == 'Warehouse Based'",
+   "fieldname": "warehouse_field",
+   "fieldtype": "Select",
+   "label": "Warehouse Field",
+   "options": "from_warehouse\nto_warehouse\nwarehouse\nsource_warehouse\ntarget_warehouse"
   },
   {
    "fieldname": "fallback_supplier",

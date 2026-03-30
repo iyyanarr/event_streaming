@@ -40,25 +40,32 @@ class SPPSpecialSupplierMapping(Document):
 	def get_special_supplier_mapping(self, producer_supplier, doc_data=None):
 		"""Get special mapping for a producer supplier"""
 		frappe.logger().info(f"Special supplier mapping called for: {producer_supplier}")
-		frappe.logger().info(f"Document data keys: {list(doc_data.keys()) if doc_data else 'None'}")
 		
+		# 1. Normal mapping (where we have a supplier name to match)
+		if producer_supplier:
+			for mapping in self.special_mappings:
+				# Check for exact match OR partial match
+				is_match = (mapping.producer_supplier == producer_supplier or 
+						   mapping.producer_supplier in producer_supplier or
+						   producer_supplier in mapping.producer_supplier)
+						   
+				if is_match and mapping.is_active:
+					if mapping.mapping_type == "Address Based":
+						return self.process_address_based_mapping(mapping, doc_data)
+					elif mapping.mapping_type == "Direct":
+						return mapping.consumer_supplier
+					elif mapping.mapping_type == "Custom":
+						return self.process_custom_mapping(mapping, doc_data)
+					elif mapping.mapping_type == "Warehouse Based":
+						return self.process_warehouse_based_mapping(mapping, doc_data)
+
+		# 2. Fallback for Warehouse Based mapping (where we don't have a supplier yet)
+		# This is common for Stock Entries coming from spp15.local
 		for mapping in self.special_mappings:
-			# Check for exact match OR partial match (in case Document Type Mapping already modified the supplier name)
-			is_match = (mapping.producer_supplier == producer_supplier or 
-			           mapping.producer_supplier in producer_supplier or
-			           producer_supplier in mapping.producer_supplier or
-			           # Also check for B P CHEMICALS variations
-			           (mapping.producer_supplier == "B P CHEMICALS" and "B P Chemicals" in producer_supplier))
-			           
-			if is_match and mapping.is_active:
-				frappe.logger().info(f"Found matching mapping for {producer_supplier}: type={mapping.mapping_type}")
-				
-				if mapping.mapping_type == "Address Based":
-					return self.process_address_based_mapping(mapping, doc_data)
-				elif mapping.mapping_type == "Direct":
-					return mapping.consumer_supplier
-				elif mapping.mapping_type == "Custom":
-					return self.process_custom_mapping(mapping, doc_data)
+			if mapping.mapping_type == "Warehouse Based" and mapping.is_active:
+				result = self.process_warehouse_based_mapping(mapping, doc_data)
+				if result:
+					return result
 		
 		frappe.logger().warning(f"No special mapping found for supplier: {producer_supplier}")
 		return None
@@ -287,6 +294,58 @@ class SPPSpecialSupplierMapping(Document):
 		# For now, treat custom as direct mapping
 		# This can be extended in the future for more complex logic
 		return mapping.consumer_supplier or mapping.fallback_supplier
+
+	def process_warehouse_based_mapping(self, mapping, doc_data):
+		"""Process warehouse-based mapping logic by extracting code from warehouse name"""
+		frappe.logger().info(f"Processing warehouse-based mapping for {mapping.producer_supplier}")
+		
+		if not doc_data:
+			return mapping.fallback_supplier
+			
+		# 1. Get the list of fields to check
+		# We start with the configured field, then try common fallbacks
+		fields_to_check = []
+		if mapping.get("warehouse_field"):
+			fields_to_check.append(mapping.get("warehouse_field"))
+		
+		# Add standard fallbacks
+		fields_to_check.extend(["from_warehouse", "to_warehouse", "warehouse", "source_warehouse", "target_warehouse"])
+		
+		vendor_code = None
+		for field in fields_to_check:
+			val = doc_data.get(field)
+			if val and isinstance(val, str) and ":" in val:
+				prefix = val.split(":")[0].strip()
+				if prefix.startswith("DF"):
+					vendor_code = prefix
+					frappe.logger().info(f"Found vendor code {vendor_code} in field {field}")
+					break
+			elif val and isinstance(val, str) and val.startswith("DF"):
+				vendor_code = val.split(" ")[0].strip()
+				frappe.logger().info(f"Found vendor code {vendor_code} in field {field} (no colon)")
+				break
+					
+		if not vendor_code:
+			return mapping.fallback_supplier
+			
+		# 3. Check if this extracted code matches the producer_supplier in the mapping
+		if mapping.producer_supplier == vendor_code:
+			return mapping.consumer_supplier
+			
+		# 4. If no match, check other mappings in this same document
+		# We iterate through all mappings to find one that matches the extracted code
+		for other_mapping in self.special_mappings:
+			if other_mapping.is_active and other_mapping.mapping_type == "Warehouse Based":
+				if other_mapping.producer_supplier == vendor_code:
+					frappe.logger().info(f"Found match in other mapping row: {vendor_code} -> {other_mapping.consumer_supplier}")
+					return other_mapping.consumer_supplier
+					
+		# 5. Last resort: try to find a supplier whose name or ID matches the vendor code directly on the consumer site
+		if frappe.db.exists("Supplier", vendor_code):
+			return vendor_code
+			
+		# Fallback to general mapping or the original value
+		return mapping.fallback_supplier
 
 	@frappe.whitelist()
 	def debug_address_supplier_mapping(self, address_name):
