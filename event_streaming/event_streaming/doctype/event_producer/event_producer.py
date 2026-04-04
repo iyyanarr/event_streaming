@@ -442,7 +442,19 @@ def update_row_removed(local_doc, removed):
 	"""Sync child table row deletion type update"""
 	for tablename, rownames in removed.items():
 		if tablename == "null" or not tablename:
+			# Fallback: We don't have the table name, search all table fields
+			for row in rownames:
+				for df in local_doc.meta.get_table_fields():
+					table_rows = local_doc.get(df.fieldname)
+					if not table_rows:
+						continue
+					child_table_row = get_child_table_row(table_rows, row)
+					if child_table_row:
+						table_rows.remove(child_table_row)
+						local_doc.set(df.fieldname, table_rows)
+						break
 			continue
+		
 		table = local_doc.get_table_field_doctype(tablename)
 		for row in rownames:
 			table_rows = local_doc.get(tablename)
